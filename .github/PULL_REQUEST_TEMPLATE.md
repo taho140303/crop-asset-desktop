@@ -8,7 +8,7 @@ Describe the changes and their motivation.
 
 ## Changes
 
-- 
+-
 
 ## Validation
 
