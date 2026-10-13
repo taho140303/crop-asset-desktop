@@ -1,3 +1,7 @@
+## Linked issue
+
+Closes #
+
 ## Summary
 
 Describe the changes and their motivation.

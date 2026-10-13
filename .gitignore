@@ -58,7 +58,7 @@ Desktop.ini
 *.AppImage
 *.dmg
 *.msi
-*-setup.exe
+*.exe
 
 # Application-generated crop metadata and exports
 *.scrop

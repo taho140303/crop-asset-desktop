@@ -46,11 +46,15 @@ Follow the conventions in nearby code and keep changes focused. TypeScript is co
 
 ## Branches and commits
 
-Create a descriptive branch from the current default branch, for example `feat/export-settings`, `fix/crop-boundary`, or `docs/contributing`. Do not commit directly to the default branch. Write clear commit messages; Conventional Commit prefixes such as `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, and `test:` are encouraged.
+Create a descriptive branch from the current default branch, using `feat/<short-description>` for features or `fix/<short-description>` for fixes (for example, `feat/export-settings` or `fix/crop-boundary`). Documentation-only work may use `docs/<short-description>`. Do not commit directly to the default branch. Write clear commit messages; Conventional Commit prefixes such as `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, and `test:` are encouraged.
 
 ## Pull requests and review
 
-Push your branch to your fork and open a pull request against the upstream default branch. Explain the motivation and user-visible changes, link related issues, list validation performed, and include screenshots for UI changes. Keep the PR focused and respond constructively to review feedback. Maintainer approval is required before merge; do not merge your own contribution unless explicitly authorized. Maintainers handle release notes and release publication.
+Push your branch to your fork and open a pull request against the upstream default branch. Explain the motivation and user-visible changes, link related issues, list validation performed, and include screenshots for UI changes. Keep the PR focused and respond constructively to review feedback. At least one maintainer approval is required before merge; do not merge your own contribution unless explicitly authorized.
+
+## Release process
+
+Maintainers prepare releases after approved changes are merged. The release process is to review the merged changes, update the version and release notes/summary, create and publish a versioned release, and attach the platform build artifacts. Contributors should include concise user-facing release-note details in their pull request summary; maintainers determine what is included in each release.
 
 ## Validation checklist
 
