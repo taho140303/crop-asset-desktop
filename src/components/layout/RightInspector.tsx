@@ -1,18 +1,22 @@
+import { useMemo, useState } from "react";
 import { useGridStore } from "@/store/useGridStore";
 import { useImageStore } from "@/store/useImageStore";
 import { useAutoDetectStore } from "@/store/useAutoDetectStore";
+import { computeFrames, useFrameStore, type Frame } from "@/store/useFrameStore";
+import { FrameInfoPanel } from "@/components/Inspector/FrameInfoPanel";
+import { NormalizePanel } from "@/components/Inspector/NormalizePanel";
+import { NormalizePreviewStrip } from "@/components/Inspector/NormalizePreviewStrip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Grid,
   Sparkles,
   Maximize2,
-  Box,
   Layers,
-  Info,
   RefreshCw,
   Check,
   AlertTriangle,
+  Pencil,
 } from "lucide-react";
 
 export function RightInspector() {
@@ -20,15 +24,20 @@ export function RightInspector() {
   const {
     mode,
     config,
-    manualFrames,
-    selectedFrameIds,
     setMode,
     updateConfig,
     applyPreset,
     autoFillFromImage,
-    convertAutoToManual,
-    getFrames,
   } = useGridStore();
+  const {
+    frames: manualFrames,
+    selectedIds: selectedFrameIds,
+    setFrames,
+    selectFrames,
+    addFrame,
+    alignFrames,
+    mergeFrames,
+  } = useFrameStore();
 
   const {
     config: autoConfig,
@@ -40,27 +49,11 @@ export function RightInspector() {
     runDetection,
   } = useAutoDetectStore();
 
-  const uniformFrames = getFrames();
   const selectedCount = selectedFrameIds.length;
-
-  const currentFramesList =
-    mode === "auto"
-      ? detectedFrames.map((f, i) => ({
-          id: `auto-${i}`,
-          index: i,
-          row: undefined as number | undefined,
-          col: undefined as number | undefined,
-          x: f.x,
-          y: f.y,
-          w: f.w,
-          h: f.h,
-        }))
-      : uniformFrames;
-
-  const selectedFrame =
-    selectedCount === 1
-      ? currentFramesList.find((f) => selectedFrameIds.includes(f.id))
-      : null;
+  const [exceededFrames, setExceededFrames] = useState<Frame[]>([]);
+  const visibleFrames = useMemo<Frame[]>(() => mode === "manual" ? manualFrames
+    : mode === "auto" ? detectedFrames.map((frame, index) => ({ id: `auto-${index}`, ...frame }))
+      : computeFrames(config), [mode, manualFrames, detectedFrames, config]);
 
   const handleInputChange = (field: keyof typeof config, value: string) => {
     const num = parseInt(value, 10);
@@ -107,7 +100,7 @@ export function RightInspector() {
           <label className="text-xs font-medium text-muted-foreground">
             Slicing Mode
           </label>
-          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+          <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
             <button
               type="button"
               onClick={() => setMode("uniform")}
@@ -137,16 +130,32 @@ export function RightInspector() {
               <Sparkles className="h-3.5 w-3.5 text-amber-500" />
               Auto Detect
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (mode !== "manual" && manualFrames.length === 0) {
+                  const sourceFrames = mode === "auto"
+                    ? detectedFrames.map((frame) => frame)
+                    : computeFrames(config);
+                  setFrames(sourceFrames.map((frame, index) => ({ id: `manual-${index + 1}`, x: frame.x, y: frame.y, w: frame.w, h: frame.h })));
+                  selectFrames([]);
+                }
+                setMode("manual");
+              }}
+              className={`flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-medium transition-all ${mode === "manual" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Manual
+            </button>
           </div>
           {mode === "manual" && (
-            <div className="mt-1 flex items-center justify-between rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-400">
-              <span>Mode: Manual Edit ({manualFrames.length} frames)</span>
-              <button
-                onClick={() => setMode("uniform")}
-                className="underline hover:text-amber-300"
-              >
-                Reset
-              </button>
+            <div className="mt-1 space-y-2">
+              <div className="flex items-center justify-between rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-400">
+                <span>Mode: Manual Edit ({manualFrames.length} frames)</span>
+                <button onClick={() => setMode("uniform")} className="underline hover:text-amber-300">Reset</button>
+              </div>
+              <Button size="sm" variant="outline" className="w-full text-xs"
+                onClick={() => addFrame({ x: 0, y: 0, w: config.fw, h: config.fh })}>Add Frame</Button>
             </div>
           )}
         </div>
@@ -411,7 +420,11 @@ export function RightInspector() {
                   variant="outline"
                   size="sm"
                   className="w-full mt-2 text-xs gap-1.5"
-                  onClick={() => convertAutoToManual(detectedFrames)}
+                  onClick={() => {
+                    setFrames(detectedFrames.map((frame, index) => ({ id: `frame-${index + 1}`, ...frame })));
+                    selectFrames([]);
+                    setMode("manual");
+                  }}
                 >
                   <Check className="h-3.5 w-3.5 text-emerald-400" />
                   Convert to editable frames
@@ -421,63 +434,27 @@ export function RightInspector() {
           </div>
         )}
 
-        {/* Selected Frame Inspector */}
-        <div className="border-t border-border pt-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <Box className="h-3.5 w-3.5 text-primary" />
-              Frame Inspector
-            </span>
-            <span className="text-[11px] text-muted-foreground font-mono">
-              {selectedCount > 0 ? `${selectedCount} selected` : "None"}
-            </span>
-          </div>
+        <div className="border-t border-border pt-4">
+          <NormalizePanel exceededFrames={exceededFrames} />
+          <NormalizePreviewStrip frames={visibleFrames} sourceImage={currentImage?.bitmap ?? null} onValidationChange={setExceededFrames} />
+        </div>
 
-          {selectedFrame ? (
-            <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-xs">
-              <div className="flex justify-between items-center text-muted-foreground">
-                <span>Frame Index</span>
-                <span className="font-mono font-semibold text-foreground">
-                  #{selectedFrame.index + 1}
-                </span>
-              </div>
-              {selectedFrame.row !== undefined && (
-                <div className="flex justify-between items-center text-muted-foreground">
-                  <span>Row / Col</span>
-                  <span className="font-mono text-foreground">
-                    Row {selectedFrame.row + 1}, Col {(selectedFrame.col ?? 0) + 1}
-                  </span>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
-                <div className="rounded bg-background/50 px-2 py-1">
-                  <span className="text-muted-foreground mr-1">X:</span>
-                  {selectedFrame.x}px
-                </div>
-                <div className="rounded bg-background/50 px-2 py-1">
-                  <span className="text-muted-foreground mr-1">Y:</span>
-                  {selectedFrame.y}px
-                </div>
-                <div className="rounded bg-background/50 px-2 py-1">
-                  <span className="text-muted-foreground mr-1">W:</span>
-                  {selectedFrame.w}px
-                </div>
-                <div className="rounded bg-background/50 px-2 py-1">
-                  <span className="text-muted-foreground mr-1">H:</span>
-                  {selectedFrame.h}px
-                </div>
-              </div>
-            </div>
-          ) : selectedCount > 1 ? (
-            <div className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-              {selectedCount} frames selected
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
-              <Info className="h-4 w-4 shrink-0" />
-              <span>Click on any frame in canvas to inspect its dimensions.</span>
+        <div className="border-t border-border pt-4 space-y-3">
+          <div className="text-xs font-semibold">Frame Inspector · {selectedCount} selected</div>
+          {mode === "manual" && selectedCount >= 2 && (
+            <div className="grid grid-cols-3 gap-1">
+              {([
+                ["Left", "left"], ["Right", "right"], ["Top", "top"],
+                ["Bottom", "bottom"], ["H-Center", "h-center"], ["V-Center", "v-center"],
+              ] as const).map(([label, align]) => (
+                <Button key={align} size="sm" variant="outline" className="h-7 px-1 text-[10px]"
+                  onClick={() => alignFrames(align)}>{label}</Button>
+              ))}
+              <Button size="sm" variant="outline" className="col-span-3 h-7 text-[10px]"
+                onClick={() => mergeFrames(selectedFrameIds)}>Merge selected</Button>
             </div>
           )}
+          <FrameInfoPanel />
         </div>
       </div>
     </aside>

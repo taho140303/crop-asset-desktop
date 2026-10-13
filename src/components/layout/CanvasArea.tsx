@@ -3,7 +3,11 @@ import { Stage, Layer, Image as KonvaImage, Rect } from "react-konva";
 import { useImageStore } from "@/store/useImageStore";
 import { useGridStore } from "@/store/useGridStore";
 import { useAutoDetectStore } from "@/store/useAutoDetectStore";
-import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
+import { useFrameStore, type Frame } from "@/store/useFrameStore";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { FrameContextMenu } from "@/components/ContextMenu/FrameContextMenu";
+import { BottomBar } from "@/components/Layout/BottomBar";
+import { NormalizeOverlay } from "@/components/Canvas/NormalizeOverlay";
 import { GridOverlayLayer } from "@/components/canvas/GridOverlayLayer";
 import { KonvaEventObject } from "konva/lib/Node";
 import { Loader2, UploadCloud, AlertCircle } from "lucide-react";
@@ -25,11 +29,18 @@ export function CanvasArea() {
     loadFile,
   } = useImageStore();
 
+  const { mode, config } = useGridStore();
   const {
     selectFrame,
-    selectAllFrames,
     clearSelection,
-  } = useGridStore();
+    frames,
+    removeFrames,
+    updateFrame,
+    duplicateFrames,
+    splitFrame,
+  } = useFrameStore();
+  const [contextMenu, setContextMenu] = useState<{ frame: Frame; x: number; y: number } | null>(null);
+  useKeyboardShortcuts(containerRef, true);
 
   const { isDetecting, toastMessage, clearToast } = useAutoDetectStore();
 
@@ -74,15 +85,9 @@ export function CanvasArea() {
         setIsSpacePressed(true);
       }
 
-      // Ctrl+A / Cmd+A = Select all frames
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
-        e.preventDefault();
-        selectAllFrames();
-      }
-
-      // Escape = deselect
       if (e.key === "Escape") {
         clearSelection();
+        setContextMenu(null);
       }
     };
 
@@ -99,7 +104,7 @@ export function CanvasArea() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [selectAllFrames, clearSelection]);
+  }, [clearSelection]);
 
   // Tauri Drag-Drop support
   useEffect(() => {
@@ -224,9 +229,24 @@ export function CanvasArea() {
     ? "cursor-grab"
     : "cursor-default";
 
+  const openFrameContextMenu = (frame: Frame, clientX: number, clientY: number) => {
+    if (mode !== "manual" || !containerRef.current) return;
+    const bounds = containerRef.current.getBoundingClientRect();
+    selectFrame(frame.id);
+    setContextMenu({ frame, x: clientX - bounds.left, y: clientY - bounds.top });
+  };
+
   return (
     <main
       ref={containerRef}
+      tabIndex={0}
+      onPointerDown={(event) => {
+        if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLButtonElement)) containerRef.current?.focus();
+      }}
+      onClick={(event) => { if (event.target === event.currentTarget) setContextMenu(null); }}
+      onMouseDown={(event) => {
+        if (contextMenu && !(event.target instanceof Element && event.target.closest("[data-frame-context-menu]"))) setContextMenu(null);
+      }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -353,16 +373,39 @@ export function CanvasArea() {
               scaleX={viewport.scale}
               scaleY={viewport.scale}
             >
-              <GridOverlayLayer
-                onSelectFrame={(id, multi) => selectFrame(id, multi)}
-              />
+              <GridOverlayLayer onContextMenu={openFrameContextMenu} />
+            </Layer>
+          )}
+          {currentImage && (
+            <Layer
+              x={viewport.offsetX}
+              y={viewport.offsetY}
+              scaleX={viewport.scale}
+              scaleY={viewport.scale}
+              listening={false}
+            >
+              <NormalizeOverlay />
             </Layer>
           )}
         </Stage>
       )}
 
+      {contextMenu && mode === "manual" && (
+        <FrameContextMenu
+          frame={frames.find((item) => item.id === contextMenu.frame.id) ?? contextMenu.frame}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onDuplicate={() => duplicateFrames([contextMenu.frame.id])}
+          onDelete={() => removeFrames([contextMenu.frame.id])}
+          onSplit={(axis) => splitFrame(contextMenu.frame.id, axis)}
+          onRename={(label) => updateFrame(contextMenu.frame.id, { label })}
+          onReset={() => updateFrame(contextMenu.frame.id, { w: config.fw, h: config.fh, label: undefined })}
+        />
+      )}
+
       {/* Canvas bottom controls */}
-      <CanvasToolbar
+      <BottomBar
         containerWidth={dimensions.width}
         containerHeight={dimensions.height}
       />
