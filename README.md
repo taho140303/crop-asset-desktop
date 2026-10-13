@@ -109,7 +109,7 @@ The React interface and canvas update Zustand state. Frontend requests cross the
 - [x] Sprints 0–7: establish the application foundation, canvas, editing state, branding, and core workflows.
 - [ ] Sprint 8: batch processing for multiple sprite sheets.
 - [ ] Sprint 9: save and load editable project files.
-- [ ] Next: a Chiikawa pet for DeepSeek Harness.
+- [ ] Future: add optional animation-state examples for integrations.
 
 <p align="center">
   <img src="assets/diagrams/state-machine.svg" alt="Sprite Cropper editing and export state machine" width="760">
@@ -125,7 +125,7 @@ Distributed under the [MIT License](LICENSE). Copyright (c) 2026 taho140303.
 
 ## Acknowledgments
 
-Thanks to the teams and communities behind [Tauri](https://tauri.app/), [React](https://react.dev/), [Konva](https://konvajs.org/), and [shadcn/ui](https://ui.shadcn.com/) for their tools and design patterns. Visual inspiration also comes from Chiikawa's cheerful little world.
+Thanks to the teams and communities behind [Tauri](https://tauri.app/), [React](https://react.dev/), [Konva](https://konvajs.org/), and [shadcn/ui](https://ui.shadcn.com/) for their tools and design patterns.
 
 ---
 
