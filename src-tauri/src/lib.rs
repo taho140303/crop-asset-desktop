@@ -1,6 +1,21 @@
 use std::fs;
 
 #[tauri::command]
+fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
+    fs::write(path, data).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn create_dir_if_not_exists(path: String) -> Result<(), String> {
+    fs::create_dir_all(path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn path_exists(path: String) -> Result<bool, String> {
+    Ok(std::path::Path::new(&path).exists())
+}
+
+#[tauri::command]
 fn read_image_as_base64(path: String) -> Result<String, String> {
     let bytes = fs::read(&path).map_err(|e| e.to_string())?;
     let extension = std::path::Path::new(&path)
@@ -30,7 +45,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![read_image_as_base64])
+        .invoke_handler(tauri::generate_handler![
+            read_image_as_base64,
+            write_binary_file,
+            create_dir_if_not_exists,
+            path_exists
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -1,7 +1,11 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { Download, FolderOpen, Image as ImageIcon, Scissors } from "lucide-react";
 import { useImageStore } from "@/store/useImageStore";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { computeFrames, useFrameStore } from "@/store/useFrameStore";
+import { useGridStore } from "@/store/useGridStore";
+import { useAutoDetectStore } from "@/store/useAutoDetectStore";
+import { ExportDialog } from "@/components/Export/ExportDialog";
 
 export function TopBar() {
   const currentImage = useImageStore((state) => state.currentImage);
@@ -9,6 +13,17 @@ export function TopBar() {
   const loadImage = useImageStore((state) => state.loadImage);
   const loadFile = useImageStore((state) => state.loadFile);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const { mode, config } = useGridStore();
+  const manualFrames = useFrameStore((state) => state.frames);
+  const detectedFrames = useAutoDetectStore((state) => state.detectedFrames);
+  const frameCount = mode === "manual" ? manualFrames.length : mode === "auto" ? detectedFrames.length : computeFrames(config).length;
+
+  useEffect(() => {
+    const openDialog = () => setExportDialogOpen(true);
+    window.addEventListener("sprite-export-open", openDialog);
+    return () => window.removeEventListener("sprite-export-open", openDialog);
+  }, []);
 
   const handleOpenImage = async () => {
     try {
@@ -96,14 +111,16 @@ export function TopBar() {
         </button>
 
         <button
-          disabled={!currentImage}
+          onClick={() => setExportDialogOpen(true)}
+          disabled={!currentImage || frameCount === 0}
           className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-40"
-          title="Export slices (coming in future sprint)"
+          title={frameCount === 0 ? "No frames to export" : "Export frames"}
         >
           <Download className="size-3.5" />
           <span>Export</span>
         </button>
       </div>
+      <ExportDialog open={exportDialogOpen} onClose={() => setExportDialogOpen(false)} />
     </header>
   );
 }

@@ -19,6 +19,7 @@
     "immer": "^11.1.21",
     "konva": "^10.7.1",
     "lucide-react": "^1.55.0",
+    "maxrects-packer": "^2.7.3",
     "nanoid": "^6.0.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

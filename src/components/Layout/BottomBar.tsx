@@ -3,6 +3,7 @@ import { useGridStore } from "@/store/useGridStore";
 import { useAutoDetectStore } from "@/store/useAutoDetectStore";
 import { computeFrames, useFrameStore, useFrameHistory } from "@/store/useFrameStore";
 import { useNormalizeStore } from "@/store/useNormalizeStore";
+import { useExportStore } from "@/store/useExportStore";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize2, Scan, Sparkles } from "lucide-react";
 
@@ -18,6 +19,9 @@ export function BottomBar({ containerWidth, containerHeight }: BottomBarProps) {
   const { frames, selectedIds } = useFrameStore();
   const { historyLength } = useFrameHistory();
   const { enabled: normalizeEnabled, config: normalizeConfig } = useNormalizeStore();
+  const lastResult = useExportStore((state) => state.lastResult);
+  const lastExportPath = useExportStore((state) => state.lastExportPath);
+  const isExporting = useExportStore((state) => state.isExporting);
   const zoomPercent = Math.round(viewport.scale * 100);
   const frameCount = mode === "auto" ? detectedFrames.length
     : mode === "manual" ? frames.length : computeFrames(config).length;
@@ -37,6 +41,10 @@ export function BottomBar({ containerWidth, containerHeight }: BottomBarProps) {
           {normalizeEnabled && <>
             <span className="text-muted-foreground">|</span>
             <span>Normalize: {normalizeConfig.targetW}×{normalizeConfig.targetH} · {normalizeConfig.anchor}</span>
+          </>}
+          {!isExporting && lastResult && lastExportPath && !lastResult.cancelled && lastResult.filesWritten.length > 0 && <>
+            <span className="text-muted-foreground">|</span>
+            <span className="max-w-64 truncate" title={lastExportPath}>Last export: {lastResult.exportedFrames} frames → {lastExportPath}</span>
           </>}
         </div>
       )}

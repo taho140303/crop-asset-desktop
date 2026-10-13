@@ -12,17 +12,22 @@ export function useKeyboardShortcuts(canvasRef: RefObject<HTMLElement | null>, e
 
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target;
-      if (
-        target instanceof HTMLElement &&
-        (target.isContentEditable || target.closest("input, textarea, select, button"))
-      ) return;
+      const isTextInput = target instanceof HTMLElement &&
+        (target.isContentEditable || Boolean(target.closest("input, textarea, select")));
+      const control = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+      if (isTextInput) return;
+      if (control && key === "e") {
+        event.preventDefault();
+        window.dispatchEvent(new Event("sprite-export-open"));
+        return;
+      }
+      if (target instanceof HTMLElement && target.closest("button")) return;
       if (!canvasRef.current?.contains(document.activeElement)) return;
 
       const frameStore = useFrameStore.getState();
       const { mode, config } = useGridStore.getState();
       const selected = frameStore.selectedIds;
-      const control = event.ctrlKey || event.metaKey;
-      const key = event.key.toLowerCase();
       const player = usePlayerStore.getState();
       const visibleFrames = mode === "manual" ? frameStore.frames
         : mode === "auto"
