@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 256" role="img" aria-labelledby="title desc">
+<title id="title">Sprite Cropper</title><desc id="desc">Sprite Cropper logo and wordmark.</desc>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6366f1"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs>
+<g id="background"><rect x="8" y="8" width="240" height="240" rx="60" fill="url(#bg)"/></g>
+<g id="grid" fill="none" stroke="#fafafa" stroke-opacity=".8" stroke-width="7"><rect x="54" y="54" width="148" height="148" rx="12"/><path d="M103 54v148M152 54v148M54 103h148M54 152h148"/></g>
+<g id="selection"><rect x="103" y="103" width="49" height="49" rx="4" fill="#22d3ee" fill-opacity=".32" stroke="#22d3ee" stroke-width="6"/></g>
+<g id="cursor" fill="#fafafa" stroke="#18181b" stroke-width="4" stroke-linejoin="round"><path d="M172 156v48l12-12 11 21 11-6-11-20 18-2z"/></g>
+<text x="292" y="163" fill="#18181b" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-size="82" font-weight="750" letter-spacing="-3">Sprite Cropper</text>
+</svg>
