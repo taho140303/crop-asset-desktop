@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { LoadedImage, Viewport, RecentFile } from "@/types/image";
 import { loadImageFromPath, loadImageFromFile } from "@/lib/imageLoader";
+import { useGridStore } from "./useGridStore";
 
 interface ImageState {
   currentImage: LoadedImage | null;
@@ -96,6 +97,13 @@ export const useImageStore = create<ImageState>((set, get) => ({
         isLoading: false,
         error: null,
       });
+
+      // Auto-update grid frame dimensions
+      try {
+        useGridStore.getState().autoFillFromImage(loaded.width, loaded.height);
+      } catch {
+        // ignore
+      }
     } catch (err: unknown) {
       set({
         isLoading: false,
@@ -136,6 +144,13 @@ export const useImageStore = create<ImageState>((set, get) => ({
         isLoading: false,
         error: null,
       });
+
+      // Auto-update grid frame dimensions
+      try {
+        useGridStore.getState().autoFillFromImage(loaded.width, loaded.height);
+      } catch {
+        // ignore
+      }
     } catch (err: unknown) {
       set({
         isLoading: false,

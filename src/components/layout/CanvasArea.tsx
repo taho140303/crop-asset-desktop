@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Stage, Layer, Image as KonvaImage, Rect } from "react-konva";
 import type Konva from "konva";
 import { UploadCloud } from "lucide-react";
 import { useImageStore } from "@/store/useImageStore";
+import { useGridStore } from "@/store/useGridStore";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
+import { GridOverlayLayer } from "@/components/canvas/GridOverlayLayer";
 
 export function CanvasArea() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -24,6 +26,15 @@ export function CanvasArea() {
   const loadImage = useImageStore((state) => state.loadImage);
   const loadFile = useImageStore((state) => state.loadFile);
 
+  // Grid Store
+  const frames = useGridStore((state) => state.getFrames)();
+  const selectedFrameIds = useGridStore((state) => state.selectedFrameIds);
+  const hoveredFrameId = useGridStore((state) => state.hoveredFrameId);
+  const selectFrame = useGridStore((state) => state.selectFrame);
+  const selectAllFrames = useGridStore((state) => state.selectAllFrames);
+  const clearSelection = useGridStore((state) => state.clearSelection);
+  const setHoveredFrame = useGridStore((state) => state.setHoveredFrame);
+
   // ResizeObserver to track container dimensions
   useEffect(() => {
     const el = containerRef.current;
@@ -41,21 +52,31 @@ export function CanvasArea() {
     if (currentImage && size.width > 0 && size.height > 0) {
       fitToScreen(size.width, size.height);
     }
-  }, [currentImage?.path, size.width, size.height]);
+  }, [currentImage?.path, size.width, size.height, fitToScreen]);
 
-  // Keyboard listener for Space bar (pan modifier)
+  // Keyboard listener: Space for pan, Ctrl+A / Cmd+A to select all frames
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is currently typing in an input
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
       if (e.code === "Space" && !e.repeat) {
-        // Prevent default space scroll
-        if (
-          e.target instanceof HTMLInputElement ||
-          e.target instanceof HTMLTextAreaElement
-        ) {
-          return;
-        }
         e.preventDefault();
         setIsSpacePressed(true);
+      }
+
+      if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
+        e.preventDefault();
+        selectAllFrames();
+      }
+
+      if (e.key === "Escape") {
+        clearSelection();
       }
     };
 
@@ -73,7 +94,7 @@ export function CanvasArea() {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, []);
+  }, [selectAllFrames, clearSelection]);
 
   // Tauri Native Drag and Drop listener
   useEffect(() => {
@@ -173,6 +194,17 @@ export function CanvasArea() {
     lastDragPos.current = null;
   };
 
+  // Stage background click handler to clear selection when clicking empty space
+  const handleStageClick = useCallback(
+    (e: any) => {
+      // If clicked on Stage itself or background rect
+      if (e.target === e.target.getStage() || e.target.name() === "bg-canvas") {
+        clearSelection();
+      }
+    },
+    [clearSelection]
+  );
+
   // Determine cursor styling
   let cursorClass = "cursor-default";
   if (isDraggingCanvas) {
@@ -181,7 +213,6 @@ export function CanvasArea() {
     cursorClass = "cursor-grab";
   }
 
-  // Pan handlers: Space+Left Click OR Middle Click
   return (
     <main
       ref={containerRef}
@@ -202,10 +233,13 @@ export function CanvasArea() {
           width={size.width}
           height={size.height}
           className="block"
+          onClick={handleStageClick}
+          onTap={handleStageClick}
         >
           {/* Background Layer */}
-          <Layer listening={false}>
+          <Layer>
             <Rect
+              name="bg-canvas"
               x={0}
               y={0}
               width={size.width}
@@ -224,7 +258,7 @@ export function CanvasArea() {
           >
             {currentImage && (
               <>
-                {/* Image bounding backdrop (transparency checkerboard) */}
+                {/* Image bounding backdrop */}
                 <Rect
                   x={0}
                   y={0}
@@ -258,6 +292,20 @@ export function CanvasArea() {
               </>
             )}
           </Layer>
+
+          {/* Grid Overlay Layer */}
+          {currentImage && (
+            <GridOverlayLayer
+              frames={frames}
+              selectedFrameIds={selectedFrameIds}
+              hoveredFrameId={hoveredFrameId}
+              scale={viewport.scale}
+              offsetX={viewport.offsetX}
+              offsetY={viewport.offsetY}
+              onSelectFrame={selectFrame}
+              onHoverFrame={setHoveredFrame}
+            />
+          )}
         </Stage>
       )}
 
@@ -295,7 +343,7 @@ export function CanvasArea() {
         </div>
       )}
 
-      {/* Bottom Floating Toolbar: Fit, 1:1, Zoom in/out, Zoom % */}
+      {/* Bottom Floating Toolbar: Fit, 1:1, Zoom in/out, Zoom %, and Frame count & size */}
       <CanvasToolbar
         containerWidth={size.width}
         containerHeight={size.height}
