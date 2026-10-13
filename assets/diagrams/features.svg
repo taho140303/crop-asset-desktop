@@ -1,9 +1,43 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-labelledby="title desc">
-<title id="title">Sprite Cropper features</title><desc id="desc">Six capabilities: auto-detect, manual edit, normalize, preview, export, and batch-ready.</desc>
-<style>.bg{fill:#fafafa}.card{fill:#fff;stroke:#d4d4d8;stroke-width:2}.text{fill:#18181b;font:650 17px system-ui,sans-serif}.ico{fill:none;stroke:#6366f1;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.active{animation:pulse 2.6s ease-in-out infinite}.fade{animation:fade .8s ease both}.dash{fill:none;stroke:#22d3ee;stroke-width:3;stroke-dasharray:5 5;marker-end:url(#arr);animation:dash 5s linear infinite}@keyframes pulse{50%{filter:drop-shadow(0 0 8px #22d3ee)}}@keyframes dash{to{stroke-dashoffset:-80}}@keyframes fade{from{opacity:0}to{opacity:1}}@media(prefers-color-scheme:dark){.bg{fill:#18181b}.card{fill:#27272a;stroke:#52525b}.text{fill:#fafafa}}</style><defs><marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0l7 3.5-7 3.5z" fill="#22d3ee"/></marker></defs><rect class="bg" width="800" height="500"/><text class="text" x="400" y="48" text-anchor="middle" font-size="26">Made for sprite workflows</text>
-<g class="fade"><rect class="card active" x="42" y="88" width="224" height="164" rx="18"/><path class="dash" d="M267 170h15M513 170h15"/><circle class="ico" cx="154" cy="145" r="27"/><path class="ico" d="M174 165l18 18M138 145h32M154 129v32"/><text class="text" x="154" y="221" text-anchor="middle">Auto-detect</text>
-<rect class="card" x="288" y="88" width="224" height="164" rx="18"/><path class="ico" d="M360 119h60v52h-60zM380 119v52M400 119v52M360 136h60M360 153h60M434 124l14 14-14 14"/><text class="text" x="400" y="221" text-anchor="middle">Manual edit</text>
-<rect class="card" x="534" y="88" width="224" height="164" rx="18"/><path class="ico" d="M586 120h84v54h-84zM601 135h53M601 148h53M601 161h34M682 132l9 9 16-19"/><text class="text" x="646" y="221" text-anchor="middle">Normalize</text>
-<rect class="card" x="42" y="276" width="224" height="164" rx="18"/><path class="ico" d="M105 320h84v58h-84zM119 366l18-19 14 12 12-11 14 18"/><circle cx="169" cy="334" r="5" fill="#22d3ee"/><text class="text" x="154" y="410" text-anchor="middle">Preview</text>
-<rect class="card" x="288" y="276" width="224" height="164" rx="18"/><path class="ico" d="M400 308v55m-21-21 21 21 21-21M365 377h70v18h-70z"/><text class="text" x="400" y="421" text-anchor="middle">Export</text>
-<rect class="card" x="534" y="276" width="224" height="164" rx="18"/><path class="ico" d="M596 319h44v40h-44zM610 307h44v40M624 295h44v40M604 332h27M604 344h19"/><text class="text" x="646" y="410" text-anchor="middle">Batch-ready</text></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" aria-labelledby="title desc" viewBox="0 0 800 500">
+    <title id="title">Sprite Cropper features</title>
+    <desc id="desc">
+        Six capabilities: auto-detect, manual edit, normalize, preview, export, and batch-ready.
+    </desc>
+    <style>
+        <![CDATA[@keyframes pulse{50%{filter:drop-shadow(0 0 8px #22d3ee)}}@keyframes dash{to{stroke-dashoffset:-80}}@keyframes fade{0%{opacity:0}to{opacity:1}}.dash{fill:none;stroke:#22d3ee;stroke-width:3;stroke-dasharray:5 5;marker-end:url(#arr);animation:dash 5s linear infinite}.card{fill:#fff;stroke:#d4d4d8;stroke-width:2}.text{fill:#18181b;font:650 17px system-ui,sans-serif}.ico{fill:none;stroke:#6366f1;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}@media (prefers-color-scheme:dark){svg>path:first-of-type{fill:#18181b!important}.card{fill:#27272a;stroke:#52525b}.text{fill:#fafafa}}]]>
+    </style>
+    <defs>
+        <marker id="arr" markerHeight="7" markerWidth="7" orient="auto" refX="6" refY="3.5">
+            <path fill="#22d3ee" d="m0 0 7 3.5L0 7z"/>
+        </marker>
+    </defs>
+    <path d="M0 0h800v500H0z" style="fill:#fafafa"/>
+    <text x="400" y="48" class="text" font-size="26" text-anchor="middle">Made for sprite workflows</text>
+    <g style="animation:fade .8s ease both">
+        <rect width="224" height="164" x="42" y="88" class="card" rx="18" style="animation:pulse 2.6s ease-in-out infinite"/>
+        <circle cx="154" cy="145" r="27" class="ico"/>
+        <path d="m174 165 18 18m-54-38h32m-16-16v32" class="ico"/>
+        <text x="154" y="221" class="text" text-anchor="middle">Auto-detect</text>
+        <rect width="224" height="164" x="288" y="88" class="card" rx="18"/>
+        <path d="M360 119h60v52h-60zm20 0v52m20-52v52m-40-35h60m-60 17h60m14-29 14 14-14 14" class="ico"/>
+        <text x="400" y="221" class="text" text-anchor="middle">Manual edit</text>
+        <rect width="224" height="164" x="534" y="88" class="card" rx="18"/>
+        <path d="M586 120h84v54h-84zm15 15h53m-53 13h53m-53 13h34m47-29 9 9 16-19" class="ico"/>
+        <text x="646" y="221" class="text" text-anchor="middle">Normalize</text>
+        <rect width="224" height="164" x="42" y="276" class="card" rx="18"/>
+        <path d="M105 320h84v58h-84zm14 46 18-19 14 12 12-11 14 18" class="ico"/>
+        <circle cx="169" cy="334" r="5" fill="#22d3ee"/>
+        <text x="154" y="410" class="text" text-anchor="middle">Preview</text>
+        <rect width="224" height="164" x="288" y="276" class="card" rx="18"/>
+        <path d="M400 308v55m-21-21 21 21 21-21m-56 35h70v18h-70z" class="ico"/>
+        <text x="400" y="421" class="text" text-anchor="middle">Export</text>
+        <rect width="224" height="164" x="534" y="276" class="card" rx="18"/>
+        <path d="M596 319h44v40h-44zm14-12h44v40m-30-52h44v40m-64-3h27m-27 12h19" class="ico"/>
+        <text x="646" y="410" class="text" text-anchor="middle">Batch-ready</text>
+        <path d="M266 170h22" class="dash"/>
+        <path d="M512 170h22" class="dash"/>
+        <path d="M646 252c0 12-492 12-492 24" class="dash"/>
+        <path d="M266 358h22" class="dash"/>
+        <path d="M512 358h22" class="dash"/>
+    </g>
+</svg>
