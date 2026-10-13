@@ -1,0 +1,227 @@
+import { create } from "zustand";
+import type { LoadedImage, Viewport, RecentFile } from "@/types/image";
+import { loadImageFromPath, loadImageFromFile } from "@/lib/imageLoader";
+
+interface ImageState {
+  currentImage: LoadedImage | null;
+  viewport: Viewport;
+  recentFiles: RecentFile[];
+  isLoading: boolean;
+  error: string | null;
+
+  // Actions
+  loadImage: (path: string) => Promise<void>;
+  loadFile: (file: File) => Promise<void>;
+  setViewport: (viewport: Partial<Viewport> | ((prev: Viewport) => Viewport)) => void;
+  resetViewport: () => void;
+  fitToScreen: (containerWidth: number, containerHeight: number) => void;
+  zoomToPoint: (
+    newScale: number,
+    clientX: number,
+    clientY: number,
+    containerRect: { left: number; top: number }
+  ) => void;
+  clearImage: () => void;
+}
+
+const DEFAULT_VIEWPORT: Viewport = {
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+};
+
+const SAMPLE_FILES: RecentFile[] = [
+  {
+    path: "/assets/Kawaii Bear Bounce Sprite Strip.png",
+    name: "Kawaii Bear Bounce Sprite Strip.png",
+    lastOpened: Date.now() - 1000 * 60 * 10,
+  },
+  {
+    path: "/assets/Eight-Frame Pixel Bear Walk Cycle.png",
+    name: "Eight-Frame Pixel Bear Walk Cycle.png",
+    lastOpened: Date.now() - 1000 * 60 * 20,
+  },
+  {
+    path: "/assets/Chibi Bear Wiggling Sprite Sheet.png",
+    name: "Chibi Bear Wiggling Sprite Sheet.png",
+    lastOpened: Date.now() - 1000 * 60 * 30,
+  },
+  {
+    path: "/assets/Chibi Bear Surprise Sprite Sheet.png",
+    name: "Chibi Bear Surprise Sprite Sheet.png",
+    lastOpened: Date.now() - 1000 * 60 * 40,
+  },
+  {
+    path: "/assets/Chibi Bear Poof Animation Sprite Sheet.png",
+    name: "Chibi Bear Poof Animation Sprite Sheet.png",
+    lastOpened: Date.now() - 1000 * 60 * 50,
+  },
+];
+
+export const useImageStore = create<ImageState>((set, get) => ({
+  currentImage: null,
+  viewport: DEFAULT_VIEWPORT,
+  recentFiles: SAMPLE_FILES,
+  isLoading: false,
+  error: null,
+
+  loadImage: async (path: string) => {
+    const prevImage = get().currentImage;
+    set({ isLoading: true, error: null });
+
+    try {
+      const loaded = await loadImageFromPath(path);
+
+      // Clean up previous object URL if any to prevent memory leaks
+      if (prevImage?.objectUrl) {
+        URL.revokeObjectURL(prevImage.objectUrl);
+      }
+
+      // Add to recent files
+      const existing = get().recentFiles.filter((f) => f.path !== path);
+      const updatedRecent: RecentFile[] = [
+        {
+          path,
+          name: loaded.name,
+          width: loaded.width,
+          height: loaded.height,
+          lastOpened: Date.now(),
+        },
+        ...existing,
+      ].slice(0, 20);
+
+      set({
+        currentImage: loaded,
+        recentFiles: updatedRecent,
+        isLoading: false,
+        error: null,
+      });
+    } catch (err: unknown) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
+  },
+
+  loadFile: async (file: File) => {
+    const prevImage = get().currentImage;
+    set({ isLoading: true, error: null });
+
+    try {
+      const loaded = await loadImageFromFile(file);
+
+      // Clean up previous object URL if any to prevent memory leaks
+      if (prevImage?.objectUrl) {
+        URL.revokeObjectURL(prevImage.objectUrl);
+      }
+
+      // Add to recent files
+      const existing = get().recentFiles.filter((f) => f.path !== loaded.path);
+      const updatedRecent: RecentFile[] = [
+        {
+          path: loaded.path,
+          name: loaded.name,
+          width: loaded.width,
+          height: loaded.height,
+          lastOpened: Date.now(),
+        },
+        ...existing,
+      ].slice(0, 20);
+
+      set({
+        currentImage: loaded,
+        recentFiles: updatedRecent,
+        isLoading: false,
+        error: null,
+      });
+    } catch (err: unknown) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    }
+  },
+
+  setViewport: (updater) => {
+    set((state) => ({
+      viewport:
+        typeof updater === "function"
+          ? updater(state.viewport)
+          : { ...state.viewport, ...updater },
+    }));
+  },
+
+  resetViewport: () => {
+    set({ viewport: DEFAULT_VIEWPORT });
+  },
+
+  fitToScreen: (containerWidth: number, containerHeight: number) => {
+    const { currentImage } = get();
+    if (!currentImage || containerWidth <= 0 || containerHeight <= 0) return;
+
+    const padding = 40;
+    const availW = Math.max(10, containerWidth - padding * 2);
+    const availH = Math.max(10, containerHeight - padding * 2);
+
+    const scaleX = availW / currentImage.width;
+    const scaleY = availH / currentImage.height;
+    // Clamp fit scale between 0.25 and 16
+    let scale = Math.min(scaleX, scaleY);
+    // If image fits easily, cap at 1.0 or clamp to [0.25, 16]
+    scale = Math.min(Math.max(scale, 0.25), 16);
+
+    const displayW = currentImage.width * scale;
+    const displayH = currentImage.height * scale;
+
+    const offsetX = (containerWidth - displayW) / 2;
+    const offsetY = (containerHeight - displayH) / 2;
+
+    set({
+      viewport: {
+        scale,
+        offsetX,
+        offsetY,
+      },
+    });
+  },
+
+  zoomToPoint: (
+    newScale: number,
+    clientX: number,
+    clientY: number,
+    containerRect: { left: number; top: number }
+  ) => {
+    const { viewport } = get();
+    const clampedScale = Math.min(Math.max(newScale, 0.25), 16);
+
+    const mouseX = clientX - containerRect.left;
+    const mouseY = clientY - containerRect.top;
+
+    // Image coordinate before zoom:
+    const imgX = (mouseX - viewport.offsetX) / viewport.scale;
+    const imgY = (mouseY - viewport.offsetY) / viewport.scale;
+
+    // New offset so (imgX, imgY) remains at (mouseX, mouseY):
+    const newOffsetX = mouseX - imgX * clampedScale;
+    const newOffsetY = mouseY - imgY * clampedScale;
+
+    set({
+      viewport: {
+        scale: clampedScale,
+        offsetX: newOffsetX,
+        offsetY: newOffsetY,
+      },
+    });
+  },
+
+  clearImage: () => {
+    const prevImage = get().currentImage;
+    if (prevImage?.objectUrl) {
+      URL.revokeObjectURL(prevImage.objectUrl);
+    }
+    set({ currentImage: null, viewport: DEFAULT_VIEWPORT, error: null });
+  },
+}));
