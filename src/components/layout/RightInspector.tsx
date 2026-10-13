@@ -6,6 +6,7 @@ import { computeFrames, useFrameStore, type Frame } from "@/store/useFrameStore"
 import { FrameInfoPanel } from "@/components/Inspector/FrameInfoPanel";
 import { NormalizePanel } from "@/components/Inspector/NormalizePanel";
 import { NormalizePreviewStrip } from "@/components/Inspector/NormalizePreviewStrip";
+import { AnimationPreviewPanel } from "@/components/Preview/AnimationPreviewPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -438,6 +439,8 @@ export function RightInspector() {
           <NormalizePanel exceededFrames={exceededFrames} />
           <NormalizePreviewStrip frames={visibleFrames} sourceImage={currentImage?.bitmap ?? null} onValidationChange={setExceededFrames} />
         </div>
+
+        <AnimationPreviewPanel />
 
         <div className="border-t border-border pt-4 space-y-3">
           <div className="text-xs font-semibold">Frame Inspector · {selectedCount} selected</div>

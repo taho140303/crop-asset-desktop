@@ -6,6 +6,7 @@ import { useGridStore } from "@/store/useGridStore";
 import { useAutoDetectStore } from "@/store/useAutoDetectStore";
 import { useImageStore } from "@/store/useImageStore";
 import { computeFrames, useFrameStore, type Frame } from "@/store/useFrameStore";
+import { selectOrderedFrameIds, usePlayerStore } from "@/store/usePlayerStore";
 
 interface GridOverlayLayerProps {
   onContextMenu: (frame: Frame, clientX: number, clientY: number) => void;
@@ -14,8 +15,13 @@ interface GridOverlayLayerProps {
 export function GridOverlayLayer({ onContextMenu }: GridOverlayLayerProps) {
   const { mode, config } = useGridStore();
   const { detectedFrames } = useAutoDetectStore();
-  const { viewport, currentImage } = useImageStore();
+  const { viewport, currentImage, setViewport } = useImageStore();
   const { frames: manualFrames, selectedIds, selectFrame, selectFrames, hoveredId, setHovered, updateFrame, updateFrames, duplicateFrames } = useFrameStore();
+  const playbackOrder = usePlayerStore((state) => state.playbackOrder);
+  const playerIndex = usePlayerStore((state) => state.currentIndex);
+  const isPlaying = usePlayerStore((state) => state.isPlaying);
+  const pausePlayer = usePlayerStore((state) => state.pause);
+  const setPlayerIndex = usePlayerStore((state) => state.setCurrentIndex);
   const transformerRef = useRef<Konva.Transformer>(null);
   const rectRefs = useRef(new Map<string, Konva.Rect>());
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -31,7 +37,34 @@ export function GridOverlayLayer({ onContextMenu }: GridOverlayLayerProps) {
   }, [mode, manualFrames, detectedFrames, config]);
 
   const editable = mode === "manual";
+  const orderedFrameIds = useMemo(() => selectOrderedFrameIds(visibleFrames.map((frame) => frame.id), playbackOrder), [visibleFrames, playbackOrder]);
+  const currentPlaybackId = isPlaying ? orderedFrameIds[Math.min(playerIndex, orderedFrameIds.length - 1)] : null;
   const activeTransformerFrame = editable && selectedIds.length === 1 ? selectedIds[0] : null;
+
+  const selectAndSeek = (id: string, multiSelect: boolean) => {
+    selectFrame(id, multiSelect);
+    const orderedIndex = orderedFrameIds.indexOf(id);
+    if (orderedIndex >= 0) {
+      pausePlayer();
+      setPlayerIndex(orderedIndex);
+    }
+  };
+
+  useEffect(() => {
+    if (!isPlaying || !currentPlaybackId) return;
+    const frame = visibleFrames.find((item) => item.id === currentPlaybackId);
+    const node = rectRefs.current.get(currentPlaybackId);
+    const stage = node?.getStage();
+    if (!frame || !stage || !node) return;
+    const bounds = node.getClientRect({ skipStroke: true, skipShadow: true });
+    const whollyOutside = bounds.x + bounds.width < 0 || bounds.x > stage.width()
+      || bounds.y + bounds.height < 0 || bounds.y > stage.height();
+    if (!whollyOutside) return;
+    setViewport({
+      offsetX: stage.width() / 2 - (frame.x + frame.w / 2) * viewport.scale,
+      offsetY: stage.height() / 2 - (frame.y + frame.h / 2) * viewport.scale,
+    });
+  }, [isPlaying, currentPlaybackId, visibleFrames, viewport.scale, setViewport]);
 
   useEffect(() => {
     const transformer = transformerRef.current;
@@ -136,17 +169,18 @@ export function GridOverlayLayer({ onContextMenu }: GridOverlayLayerProps) {
       fill="rgba(0,0,0,0.001)" onMouseDown={handleBackgroundDown} />}
     {visibleFrames.map((frame, index) => {
       const selected = selectedIds.includes(frame.id);
+      const playingFrame = currentPlaybackId === frame.id;
       const hovered = hoveredId === frame.id;
       return <Fragment key={frame.id}>
         <Rect ref={(node) => { if (node) rectRefs.current.set(frame.id, node); else rectRefs.current.delete(frame.id); }}
           x={frame.x} y={frame.y} width={frame.w} height={frame.h}
-          stroke={selected ? "#3b82f6" : hovered ? "#eab308" : "#ef4444"}
-          strokeWidth={(selected ? 2 : 1) / viewport.scale}
+          stroke={playingFrame ? "#06b6d4" : selected ? "#3b82f6" : hovered ? "#eab308" : "#ef4444"}
+          strokeWidth={(playingFrame ? 3 : selected ? 2 : 1) / viewport.scale}
           fill={selected ? "rgba(59,130,246,0.12)" : "rgba(0,0,0,0.001)"}
-          draggable={editable} onClick={(event) => { event.cancelBubble = true; selectFrame(frame.id, event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey); }}
-          onTap={(event) => { event.cancelBubble = true; selectFrame(frame.id, event.evt.shiftKey); }}
+          draggable={editable} onClick={(event) => { event.cancelBubble = true; selectAndSeek(frame.id, event.evt.shiftKey || event.evt.ctrlKey || event.evt.metaKey); }}
+          onTap={(event) => { event.cancelBubble = true; selectAndSeek(frame.id, event.evt.shiftKey); }}
           onMouseEnter={() => setHovered(frame.id)} onMouseLeave={() => setHovered(null)}
-          onContextMenu={(event) => { event.evt.preventDefault(); event.cancelBubble = true; selectFrame(frame.id); onContextMenu(frame, event.evt.clientX, event.evt.clientY); }}
+          onContextMenu={(event) => { event.evt.preventDefault(); event.cancelBubble = true; selectAndSeek(frame.id, false); onContextMenu(frame, event.evt.clientX, event.evt.clientY); }}
           onDragStart={(event) => handleDragStart(frame, event.target as Konva.Rect, event)}
           onDragMove={handleDragMove}
           onDragEnd={(event) => handleDragEnd(frame, event.target as Konva.Rect)}

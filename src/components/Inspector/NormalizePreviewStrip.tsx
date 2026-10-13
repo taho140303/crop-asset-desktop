@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { normalizeFrame, type NormalizeFrameResult } from "@/lib/normalizeFrame";
 import { useFrameStore, type Frame } from "@/store/useFrameStore";
 import { useNormalizeStore } from "@/store/useNormalizeStore";
+import { selectOrderedFrameIds, usePlayerStore } from "@/store/usePlayerStore";
 
 interface NormalizePreviewStripProps {
   frames: Frame[];
@@ -18,6 +19,10 @@ function thumbnailSize(width: number, height: number) {
 export function NormalizePreviewStrip({ frames, sourceImage, onValidationChange }: NormalizePreviewStripProps) {
   const { enabled, config } = useNormalizeStore();
   const selectFrame = useFrameStore((state) => state.selectFrame);
+  const playbackOrder = usePlayerStore((state) => state.playbackOrder);
+  const pausePlayer = usePlayerStore((state) => state.pause);
+  const setPlayerIndex = usePlayerStore((state) => state.setCurrentIndex);
+  const orderedIds = useMemo(() => selectOrderedFrameIds(frames.map((frame) => frame.id), playbackOrder), [frames, playbackOrder]);
   const [results, setResults] = useState<Record<string, NormalizeFrameResult>>({});
   const canvasRefs = useRef(new Map<string, HTMLCanvasElement>());
 
@@ -72,7 +77,11 @@ export function NormalizePreviewStrip({ frames, sourceImage, onValidationChange 
             const tooLarge = result?.error === "FRAME_TOO_LARGE";
             const label = frame.label?.trim() || frame.id;
             return (
-              <button key={frame.id} type="button" onClick={() => selectFrame(frame.id)} title={tooLarge ? `${label}: exceeds target size` : label}
+              <button key={frame.id} type="button" onClick={() => {
+                selectFrame(frame.id);
+                const index = orderedIds.indexOf(frame.id);
+                if (index >= 0) { pausePlayer(); setPlayerIndex(index); }
+              }} title={tooLarge ? `${label}: exceeds target size` : label}
                 className={`flex shrink-0 flex-col items-center gap-1 rounded border p-1.5 text-[10px] ${tooLarge ? "border-red-500 text-red-500" : "border-border hover:border-primary"}`}>
                 <span className="flex w-full items-center justify-between gap-1">
                   <span className="truncate">#{index + 1}</span>

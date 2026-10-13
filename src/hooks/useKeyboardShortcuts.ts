@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from "react";
 import { computeFrames, useFrameStore, useFrameHistory } from "@/store/useFrameStore";
 import { useGridStore } from "@/store/useGridStore";
 import { useAutoDetectStore } from "@/store/useAutoDetectStore";
+import { selectOrderedFrameIds, usePlayerStore } from "@/store/usePlayerStore";
 
 export function useKeyboardShortcuts(canvasRef: RefObject<HTMLElement | null>, enabled = true) {
   const { undo, redo } = useFrameHistory();
@@ -22,6 +23,44 @@ export function useKeyboardShortcuts(canvasRef: RefObject<HTMLElement | null>, e
       const selected = frameStore.selectedIds;
       const control = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
+      const player = usePlayerStore.getState();
+      const visibleFrames = mode === "manual" ? frameStore.frames
+        : mode === "auto"
+          ? useAutoDetectStore.getState().detectedFrames.map((frame, index) => ({ id: `auto-${index}`, ...frame }))
+          : computeFrames(config);
+      const orderedIds = selectOrderedFrameIds(visibleFrames.map((frame) => frame.id), player.playbackOrder);
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        if (event.repeat) return;
+        if (orderedIds.length < 2) {
+          player.pause();
+        } else if (player.isPlaying) {
+          player.pause();
+        } else {
+          if (!player.loop && player.currentIndex >= orderedIds.length - 1) player.setCurrentIndex(0);
+          player.play();
+        }
+        return;
+      }
+      if (key === "," || key === ".") {
+        event.preventDefault();
+        if (orderedIds.length > 0) {
+          const direction = key === "," ? -1 : 1;
+          const next = player.currentIndex + direction;
+          const nextIndex = player.loop
+            ? ((next % orderedIds.length) + orderedIds.length) % orderedIds.length
+            : Math.max(0, Math.min(orderedIds.length - 1, next));
+          player.pause();
+          player.setCurrentIndex(nextIndex);
+        }
+        return;
+      }
+      if (key === "[" || key === "]") {
+        event.preventDefault();
+        player.setFps(player.fps + (key === "[" ? -1 : 1));
+        return;
+      }
 
       if (control && key === "a") {
         event.preventDefault();
