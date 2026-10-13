@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 permissions:
   contents: write
@@ -16,13 +16,13 @@ jobs:
       matrix:
         include:
           - name: Linux
-            os: ubuntu-22.04
+            os: ubuntu-24.04
             bundles: deb,appimage
-            args: ''
+            args: ""
           - name: Windows
             os: windows-latest
             bundles: msi,nsis
-            args: ''
+            args: ""
           - name: macOS universal
             os: macos-latest
             bundles: dmg
