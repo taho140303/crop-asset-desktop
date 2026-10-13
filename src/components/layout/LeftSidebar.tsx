@@ -3,48 +3,12 @@ import { useImageStore } from "@/store/useImageStore";
 
 const SAMPLE_ASSETS = [
   {
-    name: "Kawaii Bear Bounce",
-    path: "/assets/Kawaii Bear Bounce Sprite Strip.png",
+    name: "Smoke-Bomb",
+    path: "/assets/sample-smoke-bomb.png",
   },
   {
-    name: "Eight-Frame Pixel Bear Walk",
-    path: "/assets/Eight-Frame Pixel Bear Walk Cycle.png",
-  },
-  {
-    name: "Chibi Bear Wiggling",
-    path: "/assets/Chibi Bear Wiggling Sprite Sheet.png",
-  },
-  {
-    name: "Chibi Bear Surprise",
-    path: "/assets/Chibi Bear Surprise Sprite Sheet.png",
-  },
-  {
-    name: "Chibi Bear Poof Animation",
-    path: "/assets/Chibi Bear Poof Animation Sprite Sheet.png",
-  },
-  {
-    name: "Angry Bear Puff",
-    path: "/assets/Angry Bear Puff Sprite Sheet.png",
-  },
-  {
-    name: "Pixel Anger Escalation",
-    path: "/assets/Pixel Anger Escalation Sprite Sheet.png",
-  },
-  {
-    name: "Chibi Bear Rage Strip",
-    path: "/assets/Chibi Bear Rage Animation Strip.png",
-  },
-  {
-    name: "Sleeping Bear Pixel Strip",
-    path: "/assets/Sleeping Bear Pixel Sprite Strip.png",
-  },
-  {
-    name: "Chibi Bear Ninja Smoke-Bomb",
-    path: "/assets/Chibi Bear Ninja Smoke-Bomb Sprite Sheet.png",
-  },
-  {
-    name: "Kawaii Hamster Falling",
-    path: "/assets/Kawaii Hamster Falling Sprite Sequence.png",
+    name: "Walk-Cycle",
+    path: "/assets/sample-walk-cycle.png",
   },
 ];
 

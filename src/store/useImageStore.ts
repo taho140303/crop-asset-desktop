@@ -44,29 +44,14 @@ const DEFAULT_VIEWPORT: Viewport = {
 
 const SAMPLE_FILES: RecentFile[] = [
   {
-    path: "/assets/Kawaii Bear Bounce Sprite Strip.png",
-    name: "Kawaii Bear Bounce Sprite Strip.png",
+    path: "/assets/sample-smoke-bomb.png",
+    name: "sample-smoke-bomb.png",
     lastOpened: Date.now() - 1000 * 60 * 10,
   },
   {
-    path: "/assets/Eight-Frame Pixel Bear Walk Cycle.png",
-    name: "Eight-Frame Pixel Bear Walk Cycle.png",
+    path: "/assets/sample-walk-cycle.png",
+    name: "sample-walk-cycle.png",
     lastOpened: Date.now() - 1000 * 60 * 20,
-  },
-  {
-    path: "/assets/Chibi Bear Wiggling Sprite Sheet.png",
-    name: "Chibi Bear Wiggling Sprite Sheet.png",
-    lastOpened: Date.now() - 1000 * 60 * 30,
-  },
-  {
-    path: "/assets/Chibi Bear Surprise Sprite Sheet.png",
-    name: "Chibi Bear Surprise Sprite Sheet.png",
-    lastOpened: Date.now() - 1000 * 60 * 40,
-  },
-  {
-    path: "/assets/Chibi Bear Poof Animation Sprite Sheet.png",
-    name: "Chibi Bear Poof Animation Sprite Sheet.png",
-    lastOpened: Date.now() - 1000 * 60 * 50,
   },
 ];
 
