@@ -1,146 +1,103 @@
-import { Maximize2, Minus, Plus, RotateCcw, Layers } from "lucide-react";
 import { useImageStore } from "@/store/useImageStore";
 import { useGridStore } from "@/store/useGridStore";
+import { useAutoDetectStore } from "@/store/useAutoDetectStore";
+import { Button } from "@/components/ui/button";
+import {
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Scan,
+  Sparkles,
+} from "lucide-react";
 
 interface CanvasToolbarProps {
   containerWidth: number;
   containerHeight: number;
 }
 
-export function CanvasToolbar({ containerWidth, containerHeight }: CanvasToolbarProps) {
-  const currentImage = useImageStore((state) => state.currentImage);
-  const viewport = useImageStore((state) => state.viewport);
-  const setViewport = useImageStore((state) => state.setViewport);
-  const fitToScreen = useImageStore((state) => state.fitToScreen);
-
-  const config = useGridStore((state) => state.config);
-  const frames = useGridStore((state) => state.getFrames)();
+export function CanvasToolbar({
+  containerWidth,
+  containerHeight,
+}: CanvasToolbarProps) {
+  const { viewport, zoomIn, zoomOut, resetZoom, fitToScreen, currentImage } =
+    useImageStore();
+  const { mode, getFrames } = useGridStore();
+  const { detectedFrames } = useAutoDetectStore();
 
   const zoomPercent = Math.round(viewport.scale * 100);
 
-  // Compute total bounding size of the grid slice
-  // Total Width = offX + cols * fw + (cols - 1) * gapX
-  // Total Height = offY + rows * fh + (rows - 1) * gapY
-  const totalW = config.cols > 0 ? config.cols * config.fw + (config.cols - 1) * config.gapX : 0;
-  const totalH = config.rows > 0 ? config.rows * config.fh + (config.rows - 1) * config.gapY : 0;
-
-  const handleZoomIn = () => {
-    const centerX = containerWidth / 2;
-    const centerY = containerHeight / 2;
-    const newScale = Math.min(16, viewport.scale * 1.25);
-
-    const imgX = (centerX - viewport.offsetX) / viewport.scale;
-    const imgY = (centerY - viewport.offsetY) / viewport.scale;
-
-    setViewport({
-      scale: newScale,
-      offsetX: centerX - imgX * newScale,
-      offsetY: centerY - imgY * newScale,
-    });
-  };
-
-  const handleZoomOut = () => {
-    const centerX = containerWidth / 2;
-    const centerY = containerHeight / 2;
-    const newScale = Math.max(0.25, viewport.scale / 1.25);
-
-    const imgX = (centerX - viewport.offsetX) / viewport.scale;
-    const imgY = (centerY - viewport.offsetY) / viewport.scale;
-
-    setViewport({
-      scale: newScale,
-      offsetX: centerX - imgX * newScale,
-      offsetY: centerY - imgY * newScale,
-    });
-  };
-
-  const handleReset1to1 = () => {
-    if (!currentImage) {
-      setViewport({ scale: 1, offsetX: 0, offsetY: 0 });
-      return;
-    }
-    const newOffsetX = (containerWidth - currentImage.width) / 2;
-    const newOffsetY = (containerHeight - currentImage.height) / 2;
-    setViewport({
-      scale: 1,
-      offsetX: newOffsetX,
-      offsetY: newOffsetY,
-    });
-  };
-
-  const handleFit = () => {
-    fitToScreen(containerWidth, containerHeight);
-  };
+  // Frames count based on mode
+  const framesCount =
+    mode === "auto" ? detectedFrames.length : getFrames().length;
 
   return (
-    <div className="absolute bottom-4 left-4 right-4 z-10 flex items-center justify-between pointer-events-none select-none">
-      {/* Bottom Left: Frames info & total size */}
-      <div className="pointer-events-auto flex items-center gap-2 rounded-lg border border-border/80 bg-card/90 px-3 py-1.5 shadow-lg backdrop-blur text-xs">
-        <div className="flex items-center gap-1.5 text-foreground font-medium">
-          <Layers className="size-3.5 text-primary" />
-          <span>{frames.length} frames detected</span>
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-3 z-10">
+      {/* Frames Info Badge */}
+      {currentImage && (
+        <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-background/85 px-3 py-1.5 shadow-md backdrop-blur-md text-xs text-foreground">
+          {mode === "auto" ? (
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+          ) : (
+            <span className="h-2 w-2 rounded-full bg-primary" />
+          )}
+          <span className="font-semibold">{framesCount}</span> frames detected
+          <span className="text-muted-foreground">|</span>
+          <span className="text-muted-foreground">Total size:</span>
+          <span className="font-mono text-muted-foreground">
+            {currentImage.width}×{currentImage.height}
+          </span>
         </div>
-        <span className="text-muted-foreground/60">•</span>
-        <div className="text-muted-foreground font-mono">
-          Total size: <span className="text-foreground">{totalW}×{totalH}px</span>
-        </div>
-        {currentImage && (
-          <>
-            <span className="text-muted-foreground/60">•</span>
-            <div className="text-muted-foreground font-mono text-[11px]">
-              Image: {currentImage.width}×{currentImage.height}px
-            </div>
-          </>
-        )}
-      </div>
+      )}
 
-      {/* Bottom Right: Zoom controls */}
-      <div className="pointer-events-auto flex items-center gap-1.5 rounded-lg border border-border/80 bg-card/90 px-2 py-1.5 shadow-lg backdrop-blur">
-        <span className="min-w-[48px] px-1 text-center font-mono text-xs font-semibold text-foreground">
+      {/* Zoom Controls */}
+      <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-background/85 p-1 shadow-md backdrop-blur-md">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-foreground hover:bg-muted"
+          onClick={zoomOut}
+          title="Zoom Out"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+
+        <span className="min-w-14 text-center font-mono text-xs font-semibold text-foreground">
           {zoomPercent}%
         </span>
 
-        <div className="h-3.5 w-px bg-border" />
-
-        <button
-          onClick={handleZoomOut}
-          disabled={viewport.scale <= 0.25}
-          title="Zoom Out (Wheel Down)"
-          className="flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40 transition-colors"
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-foreground hover:bg-muted"
+          onClick={zoomIn}
+          title="Zoom In"
         >
-          <Minus className="size-3.5" />
-        </button>
+          <ZoomIn className="h-4 w-4" />
+        </Button>
 
-        <button
-          onClick={handleZoomIn}
-          disabled={viewport.scale >= 16}
-          title="Zoom In (Wheel Up)"
-          className="flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40 transition-colors"
+        <div className="mx-1 h-4 w-px bg-border" />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-xs text-foreground hover:bg-muted"
+          onClick={resetZoom}
+          title="Reset Zoom to 100%"
         >
-          <Plus className="size-3.5" />
-        </button>
+          <Scan className="mr-1 h-3.5 w-3.5" />
+          1:1
+        </Button>
 
-        <div className="h-3.5 w-px bg-border" />
-
-        <button
-          onClick={handleReset1to1}
-          disabled={!currentImage}
-          title="1:1 Original Pixel Size"
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40 transition-colors"
-        >
-          <RotateCcw className="size-3" />
-          <span>1:1</span>
-        </button>
-
-        <button
-          onClick={handleFit}
-          disabled={!currentImage}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-xs text-foreground hover:bg-muted"
+          onClick={() => fitToScreen(containerWidth, containerHeight)}
           title="Fit to Screen"
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-accent-foreground disabled:opacity-40 transition-colors"
         >
-          <Maximize2 className="size-3" />
-          <span>Fit</span>
-        </button>
+          <Maximize2 className="mr-1 h-3.5 w-3.5" />
+          Fit
+        </Button>
       </div>
     </div>
   );

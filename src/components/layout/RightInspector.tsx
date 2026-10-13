@@ -1,343 +1,481 @@
-import { useId } from "react";
-import { Grid, Sparkles, Wand2, Info } from "lucide-react";
 import { useGridStore } from "@/store/useGridStore";
 import { useImageStore } from "@/store/useImageStore";
-
-const PRESETS = [
-  { label: "1×4", rows: 1, cols: 4 },
-  { label: "1×6", rows: 1, cols: 6 },
-  { label: "1×8", rows: 1, cols: 8 },
-  { label: "2×4", rows: 2, cols: 4 },
-  { label: "3×3", rows: 3, cols: 3 },
-  { label: "4×4", rows: 4, cols: 4 },
-];
+import { useAutoDetectStore } from "@/store/useAutoDetectStore";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Grid,
+  Sparkles,
+  Maximize2,
+  Box,
+  Layers,
+  Info,
+  RefreshCw,
+  Check,
+  AlertTriangle,
+} from "lucide-react";
 
 export function RightInspector() {
-  const rowsId = useId();
-  const colsId = useId();
-  const fwId = useId();
-  const fhId = useId();
-  const gapXId = useId();
-  const gapYId = useId();
-  const offXId = useId();
-  const offYId = useId();
+  const { currentImage } = useImageStore();
+  const {
+    mode,
+    config,
+    manualFrames,
+    selectedFrameIds,
+    setMode,
+    updateConfig,
+    applyPreset,
+    autoFillFromImage,
+    convertAutoToManual,
+    getFrames,
+  } = useGridStore();
 
-  const currentImage = useImageStore((state) => state.currentImage);
-  const mode = useGridStore((state) => state.mode);
-  const setMode = useGridStore((state) => state.setMode);
-  const config = useGridStore((state) => state.config);
-  const updateConfig = useGridStore((state) => state.updateConfig);
-  const applyPreset = useGridStore((state) => state.applyPreset);
-  const autoFillFromImage = useGridStore((state) => state.autoFillFromImage);
-  const selectedFrameIds = useGridStore((state) => state.selectedFrameIds);
-  const frames = useGridStore((state) => state.getFrames)();
+  const {
+    config: autoConfig,
+    detectedFrames,
+    isDetecting,
+    hasNoAlphaWarning,
+    lastDetectionDuration,
+    setConfig: setAutoConfig,
+    runDetection,
+  } = useAutoDetectStore();
 
-  // Find selected frames details
-  const selectedFrames = frames.filter((f) => selectedFrameIds.includes(f.id));
-  const primarySelected = selectedFrames.length > 0 ? selectedFrames[0] : null;
+  const uniformFrames = getFrames();
+  const selectedCount = selectedFrameIds.length;
 
-  const handleNumberChange = (
-    key: keyof typeof config,
-    value: string,
-    min = 0
-  ) => {
+  const currentFramesList =
+    mode === "auto"
+      ? detectedFrames.map((f, i) => ({
+          id: `auto-${i}`,
+          index: i,
+          row: undefined as number | undefined,
+          col: undefined as number | undefined,
+          x: f.x,
+          y: f.y,
+          w: f.w,
+          h: f.h,
+        }))
+      : uniformFrames;
+
+  const selectedFrame =
+    selectedCount === 1
+      ? currentFramesList.find((f) => selectedFrameIds.includes(f.id))
+      : null;
+
+  const handleInputChange = (field: keyof typeof config, value: string) => {
     const num = parseInt(value, 10);
     if (!isNaN(num)) {
-      updateConfig({ [key]: Math.max(min, num) });
+      updateConfig({ [field]: Math.max(0, num) });
+    }
+  };
+
+  const presets = [
+    { label: "1×4", r: 1, c: 4 },
+    { label: "1×6", r: 1, c: 6 },
+    { label: "1×8", r: 1, c: 8 },
+    { label: "2×4", r: 2, c: 4 },
+    { label: "3×3", r: 3, c: 3 },
+    { label: "4×4", r: 4, c: 4 },
+  ];
+
+  const handleRunAutoDetect = () => {
+    if (currentImage?.bitmap) {
+      runDetection(currentImage.bitmap);
     }
   };
 
   return (
     <aside
-      className="w-72 shrink-0 border-l border-border bg-card flex flex-col text-card-foreground select-none overflow-y-auto"
+      className="flex w-80 shrink-0 flex-col border-l border-border bg-card text-card-foreground overflow-y-auto"
       aria-label="Inspector"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-border/80 px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Grid className="size-4 text-primary" />
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Inspector
-          </h2>
-        </div>
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Layers className="h-4 w-4 text-primary" />
+          Grid & Slicing
+        </h2>
+        {currentImage && (
+          <span className="text-[11px] text-muted-foreground">
+            {currentImage.width}×{currentImage.height}
+          </span>
+        )}
       </div>
 
-      <div className="flex-1 p-4 space-y-6">
-        {/* Slicing Mode Toggle */}
-        <div className="space-y-2">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <div className="p-4 space-y-6">
+        {/* Mode Toggle */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">
             Slicing Mode
           </label>
-          <div className="grid grid-cols-2 rounded-lg bg-muted/60 p-1 border border-border/60">
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
             <button
               type="button"
               onClick={() => setMode("uniform")}
               className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-all ${
                 mode === "uniform"
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-background text-foreground shadow-xs"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              <Grid className="size-3.5" />
-              <span>Uniform Grid</span>
+              <Grid className="h-3.5 w-3.5" />
+              Uniform
             </button>
             <button
               type="button"
-              disabled
-              title="Coming in next sprint"
-              className="flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium text-muted-foreground/40 cursor-not-allowed"
+              onClick={() => {
+                setMode("auto");
+                if (detectedFrames.length === 0 && currentImage?.bitmap) {
+                  runDetection(currentImage.bitmap);
+                }
+              }}
+              className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition-all ${
+                mode === "auto"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              <Sparkles className="size-3.5" />
-              <span>Auto Detect</span>
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              Auto Detect
             </button>
           </div>
-        </div>
-
-        {/* Grid Presets */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Grid Presets
-            </label>
-            {currentImage && (
-              <span className="text-[10px] text-muted-foreground/80 font-mono">
-                {currentImage.width}×{currentImage.height}px
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {PRESETS.map((p) => (
+          {mode === "manual" && (
+            <div className="mt-1 flex items-center justify-between rounded bg-amber-500/10 px-2 py-1 text-[11px] text-amber-400">
+              <span>Mode: Manual Edit ({manualFrames.length} frames)</span>
               <button
-                key={p.label}
-                type="button"
-                onClick={() =>
-                  applyPreset(p.rows, p.cols, currentImage?.width, currentImage?.height)
-                }
-                className={`rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 text-xs font-medium text-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/50 transition-colors ${
-                  config.rows === p.rows && config.cols === p.cols
-                    ? "border-primary bg-primary/10 text-primary font-semibold"
-                    : ""
-                }`}
+                onClick={() => setMode("uniform")}
+                className="underline hover:text-amber-300"
               >
-                {p.label}
+                Reset
               </button>
-            ))}
-          </div>
-
-          {/* Auto-fill from image button */}
-          <button
-            type="button"
-            disabled={!currentImage}
-            onClick={() => {
-              if (currentImage) {
-                autoFillFromImage(currentImage.width, currentImage.height);
-              }
-            }}
-            className="w-full mt-1.5 flex items-center justify-center gap-2 rounded-md border border-border/70 bg-secondary/50 hover:bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-          >
-            <Wand2 className="size-3.5 text-primary" />
-            <span>Auto-fill from image size</span>
-          </button>
+            </div>
+          )}
         </div>
 
-        {/* Grid Dimensions & Layout */}
-        <div className="space-y-3 border-t border-border/60 pt-4">
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Grid Config
-          </label>
-
-          {/* Rows & Columns */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label
-                htmlFor={rowsId}
-                className="text-xs text-muted-foreground"
-              >
-                Rows
+        {/* UNIFORM GRID SECTION */}
+        {mode === "uniform" && (
+          <div className="space-y-4">
+            {/* Presets */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Presets
               </label>
-              <input
-                id={rowsId}
-                type="number"
-                min={1}
-                value={config.rows}
-                onChange={(e) => handleNumberChange("rows", e.target.value, 1)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+              <div className="grid grid-cols-3 gap-1.5">
+                {presets.map((p) => {
+                  const isActive =
+                    config.rows === p.r && config.cols === p.c;
+                  return (
+                    <Button
+                      key={p.label}
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      className="h-7 text-xs font-mono"
+                      onClick={() =>
+                        applyPreset(
+                          p.r,
+                          p.c,
+                          currentImage?.width,
+                          currentImage?.height
+                        )
+                      }
+                    >
+                      {p.label}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="space-y-1">
-              <label
-                htmlFor={colsId}
-                className="text-xs text-muted-foreground"
-              >
-                Cols
-              </label>
-              <input
-                id={colsId}
-                type="number"
-                min={1}
-                value={config.cols}
-                onChange={(e) => handleNumberChange("cols", e.target.value, 1)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+
+            {/* Auto-fill Button */}
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full text-xs gap-1.5"
+              disabled={!currentImage}
+              onClick={() => {
+                if (currentImage) {
+                  autoFillFromImage(currentImage.width, currentImage.height);
+                }
+              }}
+            >
+              <Maximize2 className="h-3.5 w-3.5" />
+              Auto-fill from image size
+            </Button>
+
+            {/* Grid Dimension Inputs */}
+            <div className="space-y-3 pt-2">
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Rows</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    className="h-8 font-mono text-xs"
+                    value={config.rows}
+                    onChange={(e) => handleInputChange("rows", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Cols</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    className="h-8 font-mono text-xs"
+                    value={config.cols}
+                    onChange={(e) => handleInputChange("cols", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Frame W (px)</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    className="h-8 font-mono text-xs"
+                    value={config.fw}
+                    onChange={(e) => handleInputChange("fw", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Frame H (px)</label>
+                  <Input
+                    type="number"
+                    min="1"
+                    className="h-8 font-mono text-xs"
+                    value={config.fh}
+                    onChange={(e) => handleInputChange("fh", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Gap X (px)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    className="h-8 font-mono text-xs"
+                    value={config.gapX}
+                    onChange={(e) => handleInputChange("gapX", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Gap Y (px)</label>
+                  <Input
+                    type="number"
+                    min="0"
+                    className="h-8 font-mono text-xs"
+                    value={config.gapY}
+                    onChange={(e) => handleInputChange("gapY", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Offset X (px)</label>
+                  <Input
+                    type="number"
+                    className="h-8 font-mono text-xs"
+                    value={config.offX}
+                    onChange={(e) => handleInputChange("offX", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] text-muted-foreground">Offset Y (px)</label>
+                  <Input
+                    type="number"
+                    className="h-8 font-mono text-xs"
+                    value={config.offY}
+                    onChange={(e) => handleInputChange("offY", e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
           </div>
+        )}
 
-          {/* Frame Width & Height */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label
-                htmlFor={fwId}
-                className="text-xs text-muted-foreground"
-              >
-                Frame W (px)
-              </label>
-              <input
-                id={fwId}
-                type="number"
-                min={1}
-                value={config.fw}
-                onChange={(e) => handleNumberChange("fw", e.target.value, 1)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor={fhId}
-                className="text-xs text-muted-foreground"
-              >
-                Frame H (px)
-              </label>
-              <input
-                id={fhId}
-                type="number"
-                min={1}
-                value={config.fh}
-                onChange={(e) => handleNumberChange("fh", e.target.value, 1)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          {/* Gap X & Gap Y */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label
-                htmlFor={gapXId}
-                className="text-xs text-muted-foreground"
-              >
-                Gap X (px)
-              </label>
-              <input
-                id={gapXId}
-                type="number"
-                min={0}
-                value={config.gapX}
-                onChange={(e) => handleNumberChange("gapX", e.target.value, 0)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor={gapYId}
-                className="text-xs text-muted-foreground"
-              >
-                Gap Y (px)
-              </label>
-              <input
-                id={gapYId}
-                type="number"
-                min={0}
-                value={config.gapY}
-                onChange={(e) => handleNumberChange("gapY", e.target.value, 0)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
-
-          {/* Offset X & Offset Y */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label
-                htmlFor={offXId}
-                className="text-xs text-muted-foreground"
-              >
-                Offset X (px)
-              </label>
-              <input
-                id={offXId}
-                type="number"
-                value={config.offX}
-                onChange={(e) => handleNumberChange("offX", e.target.value, -9999)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-            <div className="space-y-1">
-              <label
-                htmlFor={offYId}
-                className="text-xs text-muted-foreground"
-              >
-                Offset Y (px)
-              </label>
-              <input
-                id={offYId}
-                type="number"
-                value={config.offY}
-                onChange={(e) => handleNumberChange("offY", e.target.value, -9999)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Selected Frame Inspector */}
-        <div className="space-y-3 border-t border-border/60 pt-4">
-          <div className="flex items-center justify-between">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Frame Info
-            </label>
-            {selectedFrames.length > 0 && (
-              <span className="text-[11px] font-medium text-primary">
-                {selectedFrames.length} selected
-              </span>
+        {/* AUTO DETECT SECTION */}
+        {mode === "auto" && (
+          <div className="space-y-4">
+            {hasNoAlphaWarning && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Ảnh không có alpha!</p>
+                  <p className="mt-0.5 text-amber-300/80">
+                    Ảnh không có alpha, dùng Uniform Grid
+                  </p>
+                </div>
+              </div>
             )}
-          </div>
 
-          {primarySelected ? (
-            <div className="rounded-lg border border-border/80 bg-muted/20 p-3 space-y-2.5">
-              <div className="flex items-center justify-between border-b border-border/40 pb-2">
-                <span className="text-xs font-semibold text-foreground">
-                  Frame #{primarySelected.index + 1}
-                </span>
-                <span className="text-[10px] text-muted-foreground font-mono">
-                  Row {primarySelected.row + 1}, Col {primarySelected.col + 1}
+            {/* Sliders */}
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Alpha Threshold</span>
+                  <span className="font-mono text-foreground">{autoConfig.alphaThreshold}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="255"
+                  value={autoConfig.alphaThreshold}
+                  onChange={(e) =>
+                    setAutoConfig({ alphaThreshold: parseInt(e.target.value, 10) })
+                  }
+                  className="w-full accent-primary h-1.5 bg-secondary rounded-lg cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Min Gap between frames</span>
+                  <span className="font-mono text-foreground">{autoConfig.minGap} px</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={autoConfig.minGap}
+                  onChange={(e) =>
+                    setAutoConfig({ minGap: parseInt(e.target.value, 10) })
+                  }
+                  className="w-full accent-primary h-1.5 bg-secondary rounded-lg cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Min Frame Size</span>
+                  <span className="font-mono text-foreground">{autoConfig.minFrameSize} px</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="200"
+                  value={autoConfig.minFrameSize}
+                  onChange={(e) =>
+                    setAutoConfig({ minFrameSize: parseInt(e.target.value, 10) })
+                  }
+                  className="w-full accent-primary h-1.5 bg-secondary rounded-lg cursor-pointer"
+                />
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-muted-foreground hover:text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={autoConfig.mergeTouching}
+                    onChange={(e) =>
+                      setAutoConfig({ mergeTouching: e.target.checked })
+                    }
+                    className="rounded border-zinc-700 bg-zinc-900 text-primary accent-primary"
+                  />
+                  <span>Merge touching regions</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Re-detect Button */}
+            <Button
+              variant="default"
+              size="sm"
+              className="w-full text-xs gap-1.5"
+              disabled={!currentImage || isDetecting}
+              onClick={handleRunAutoDetect}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isDetecting ? "animate-spin" : ""}`} />
+              {isDetecting ? "Detecting..." : "Re-detect"}
+            </Button>
+
+            {/* Detection Summary & Convert to Editable */}
+            <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Frames detected:</span>
+                <span className="font-mono font-semibold text-foreground">
+                  {detectedFrames.length} frames
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Position: </span>
-                  <span className="font-mono text-foreground">
-                    ({primarySelected.x}, {primarySelected.y})
-                  </span>
+              {lastDetectionDuration > 0 && (
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Speed:</span>
+                  <span className="font-mono">{lastDetectionDuration.toFixed(1)} ms</span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Size: </span>
-                  <span className="font-mono text-foreground">
-                    {primarySelected.w} × {primarySelected.h}
-                  </span>
-                </div>
-              </div>
-              {selectedFrames.length > 1 && (
-                <p className="text-[10px] text-muted-foreground italic pt-1 border-t border-border/30">
-                  + {selectedFrames.length - 1} other frames selected
-                </p>
+              )}
+
+              {detectedFrames.length > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-2 text-xs gap-1.5"
+                  onClick={() => convertAutoToManual(detectedFrames)}
+                >
+                  <Check className="h-3.5 w-3.5 text-emerald-400" />
+                  Convert to editable frames
+                </Button>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Selected Frame Inspector */}
+        <div className="border-t border-border pt-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+              <Box className="h-3.5 w-3.5 text-primary" />
+              Frame Inspector
+            </span>
+            <span className="text-[11px] text-muted-foreground font-mono">
+              {selectedCount > 0 ? `${selectedCount} selected` : "None"}
+            </span>
+          </div>
+
+          {selectedFrame ? (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2 text-xs">
+              <div className="flex justify-between items-center text-muted-foreground">
+                <span>Frame Index</span>
+                <span className="font-mono font-semibold text-foreground">
+                  #{selectedFrame.index + 1}
+                </span>
+              </div>
+              {selectedFrame.row !== undefined && (
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Row / Col</span>
+                  <span className="font-mono text-foreground">
+                    Row {selectedFrame.row + 1}, Col {(selectedFrame.col ?? 0) + 1}
+                  </span>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+                <div className="rounded bg-background/50 px-2 py-1">
+                  <span className="text-muted-foreground mr-1">X:</span>
+                  {selectedFrame.x}px
+                </div>
+                <div className="rounded bg-background/50 px-2 py-1">
+                  <span className="text-muted-foreground mr-1">Y:</span>
+                  {selectedFrame.y}px
+                </div>
+                <div className="rounded bg-background/50 px-2 py-1">
+                  <span className="text-muted-foreground mr-1">W:</span>
+                  {selectedFrame.w}px
+                </div>
+                <div className="rounded bg-background/50 px-2 py-1">
+                  <span className="text-muted-foreground mr-1">H:</span>
+                  {selectedFrame.h}px
+                </div>
+              </div>
+            </div>
+          ) : selectedCount > 1 ? (
+            <div className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+              {selectedCount} frames selected
+            </div>
           ) : (
-            <div className="flex items-start gap-2 rounded-lg border border-dashed border-border p-3 text-muted-foreground">
-              <Info className="size-4 shrink-0 mt-0.5 text-muted-foreground/60" />
-              <p className="text-xs leading-relaxed">
-                Click any frame on the canvas to inspect its details. Hold Shift to select multiple, or Ctrl+A to select all.
-              </p>
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
+              <Info className="h-4 w-4 shrink-0" />
+              <span>Click on any frame in canvas to inspect its dimensions.</span>
             </div>
           )}
         </div>

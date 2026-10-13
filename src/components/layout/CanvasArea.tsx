@@ -1,63 +1,68 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Stage, Layer, Image as KonvaImage, Rect } from "react-konva";
-import type Konva from "konva";
-import { UploadCloud } from "lucide-react";
 import { useImageStore } from "@/store/useImageStore";
 import { useGridStore } from "@/store/useGridStore";
+import { useAutoDetectStore } from "@/store/useAutoDetectStore";
 import { CanvasToolbar } from "@/components/canvas/CanvasToolbar";
 import { GridOverlayLayer } from "@/components/canvas/GridOverlayLayer";
+import { KonvaEventObject } from "konva/lib/Node";
+import { Loader2, UploadCloud, AlertCircle } from "lucide-react";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 
 export function CanvasArea() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<Konva.Stage>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
+  const containerRef = useRef<HTMLElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+
+  const {
+    currentImage,
+    viewport,
+    isLoading,
+    error,
+    setViewport,
+    setPan,
+    fitToScreen,
+    loadImage,
+    loadFile,
+  } = useImageStore();
+
+  const {
+    selectFrame,
+    selectAllFrames,
+    clearSelection,
+  } = useGridStore();
+
+  const { isDetecting, toastMessage, clearToast } = useAutoDetectStore();
+
+  // Dragging state for pan
   const [isSpacePressed, setIsSpacePressed] = useState(false);
-  const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const viewportStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const lastDragPos = useRef<{ x: number; y: number } | null>(null);
-
-  const currentImage = useImageStore((state) => state.currentImage);
-  const viewport = useImageStore((state) => state.viewport);
-  const setViewport = useImageStore((state) => state.setViewport);
-  const zoomToPoint = useImageStore((state) => state.zoomToPoint);
-  const fitToScreen = useImageStore((state) => state.fitToScreen);
-  const loadImage = useImageStore((state) => state.loadImage);
-  const loadFile = useImageStore((state) => state.loadFile);
-
-  // Grid Store
-  const frames = useGridStore((state) => state.getFrames)();
-  const selectedFrameIds = useGridStore((state) => state.selectedFrameIds);
-  const hoveredFrameId = useGridStore((state) => state.hoveredFrameId);
-  const selectFrame = useGridStore((state) => state.selectFrame);
-  const selectAllFrames = useGridStore((state) => state.selectAllFrames);
-  const clearSelection = useGridStore((state) => state.clearSelection);
-  const setHoveredFrame = useGridStore((state) => state.setHoveredFrame);
-
-  // ResizeObserver to track container dimensions
+  // ResizeObserver to track container size
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      setSize({ width, height });
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setDimensions({ width, height });
+      }
     });
-    ro.observe(el);
-    return () => ro.disconnect();
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
   }, []);
 
-  // When a new image is loaded, auto-fit to screen
+  // When image loads, fit it to screen once
   useEffect(() => {
-    if (currentImage && size.width > 0 && size.height > 0) {
-      fitToScreen(size.width, size.height);
+    if (currentImage && dimensions.width > 0 && dimensions.height > 0) {
+      fitToScreen(dimensions.width, dimensions.height);
     }
-  }, [currentImage?.path, size.width, size.height, fitToScreen]);
+  }, [currentImage?.path, currentImage?.name]);
 
-  // Keyboard listener: Space for pan, Ctrl+A / Cmd+A to select all frames
+  // Space key handling for Pan mode
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is currently typing in an input
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -66,15 +71,16 @@ export function CanvasArea() {
       }
 
       if (e.code === "Space" && !e.repeat) {
-        e.preventDefault();
         setIsSpacePressed(true);
       }
 
-      if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
+      // Ctrl+A / Cmd+A = Select all frames
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault();
         selectAllFrames();
       }
 
+      // Escape = deselect
       if (e.key === "Escape") {
         clearSelection();
       }
@@ -83,8 +89,7 @@ export function CanvasArea() {
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.code === "Space") {
         setIsSpacePressed(false);
-        setIsDraggingCanvas(false);
-        lastDragPos.current = null;
+        setIsPanning(false);
       }
     };
 
@@ -96,15 +101,14 @@ export function CanvasArea() {
     };
   }, [selectAllFrames, clearSelection]);
 
-  // Tauri Native Drag and Drop listener
+  // Tauri Drag-Drop support
   useEffect(() => {
     let unlisten: (() => void) | undefined;
-
-    const setupTauriDnd = async () => {
-      try {
-        const webview = getCurrentWebview();
-        unlisten = await webview.onDragDropEvent((event) => {
-          if (event.payload.type === "enter" || event.payload.type === "over") {
+    try {
+      const webview = getCurrentWebview();
+      webview
+        .onDragDropEvent((event) => {
+          if (event.payload.type === "over" || event.payload.type === "enter") {
             setIsDragOver(true);
           } else if (event.payload.type === "drop") {
             setIsDragOver(false);
@@ -112,23 +116,24 @@ export function CanvasArea() {
             if (paths && paths.length > 0) {
               loadImage(paths[0]);
             }
-          } else if (event.payload.type === "leave") {
+          } else {
             setIsDragOver(false);
           }
-        });
-      } catch {
-        // Not running in Tauri environment, web DnD will take care of it
-      }
-    };
-
-    setupTauriDnd();
+        })
+        .then((fn) => {
+          unlisten = fn;
+        })
+        .catch(() => {});
+    } catch {
+      // ignore
+    }
 
     return () => {
       if (unlisten) unlisten();
     };
   }, [loadImage]);
 
-  // HTML5 Web Drag and Drop fallback handlers
+  // Web HTML Drag-drop fallback
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(true);
@@ -142,211 +147,224 @@ export function CanvasArea() {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    const files = e.dataTransfer.files;
-    if (files && files.length > 0) {
-      loadFile(files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      loadFile(e.dataTransfer.files[0]);
     }
   };
 
-  // Wheel zoom handler: Zoom to cursor position, clamp 0.25x - 16x
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    if (!containerRef.current) return;
+  // Wheel zoom centered on cursor
+  const handleWheel = useCallback(
+    (e: KonvaEventObject<WheelEvent>) => {
+      e.evt.preventDefault();
+      const stage = e.target.getStage();
+      if (!stage) return;
 
-    const rect = containerRef.current.getBoundingClientRect();
-    const zoomFactor = 1.1;
-    const direction = e.deltaY < 0 ? 1 : -1;
-    const newScale = direction > 0 ? viewport.scale * zoomFactor : viewport.scale / zoomFactor;
+      const pointer = stage.getPointerPosition();
+      if (!pointer) return;
 
-    zoomToPoint(newScale, e.clientX, e.clientY, {
-      left: rect.left,
-      top: rect.top,
-    });
-  };
+      const scaleBy = 1.15;
+      const oldScale = viewport.scale;
 
-  // Mouse pan handlers: Space+Left Click OR Middle Click
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // 1: Middle button (button === 1) or Space + Left button (button === 0)
-    if (e.button === 1 || (e.button === 0 && isSpacePressed)) {
-      e.preventDefault();
-      setIsDraggingCanvas(true);
-      lastDragPos.current = { x: e.clientX, y: e.clientY };
+      const newScale =
+        e.evt.deltaY < 0 ? oldScale * scaleBy : oldScale / scaleBy;
+
+      const clampedScale = Math.min(Math.max(newScale, 0.25), 16.0);
+
+      // Compute new offset to zoom centered at mouse pointer
+      const mousePointTo = {
+        x: (pointer.x - viewport.offsetX) / oldScale,
+        y: (pointer.y - viewport.offsetY) / oldScale,
+      };
+
+      const newOffsetX = pointer.x - mousePointTo.x * clampedScale;
+      const newOffsetY = pointer.y - mousePointTo.y * clampedScale;
+
+      setViewport(clampedScale, newOffsetX, newOffsetY);
+    },
+    [viewport, setViewport]
+  );
+
+  // Pan handlers: Space+Left Click OR Middle Click
+  const handleMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    const isMiddleClick = e.evt.button === 1;
+    const isLeftClickWithSpace = e.evt.button === 0 && isSpacePressed;
+
+    if (isMiddleClick || isLeftClickWithSpace) {
+      e.evt.preventDefault();
+      setIsPanning(true);
+      panStartRef.current = { x: e.evt.clientX, y: e.evt.clientY };
+      viewportStartRef.current = { x: viewport.offsetX, y: viewport.offsetY };
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDraggingCanvas || !lastDragPos.current) return;
-
-    const dx = e.clientX - lastDragPos.current.x;
-    const dy = e.clientY - lastDragPos.current.y;
-
-    lastDragPos.current = { x: e.clientX, y: e.clientY };
-
-    setViewport((prev) => ({
-      ...prev,
-      offsetX: prev.offsetX + dx,
-      offsetY: prev.offsetY + dy,
-    }));
+  const handleMouseMove = (e: KonvaEventObject<MouseEvent>) => {
+    if (!isPanning) return;
+    const dx = e.evt.clientX - panStartRef.current.x;
+    const dy = e.evt.clientY - panStartRef.current.y;
+    setPan(viewportStartRef.current.x + dx, viewportStartRef.current.y + dy);
   };
 
   const handleMouseUp = () => {
-    setIsDraggingCanvas(false);
-    lastDragPos.current = null;
+    if (isPanning) {
+      setIsPanning(false);
+    }
   };
 
-  // Stage background click handler to clear selection when clicking empty space
-  const handleStageClick = useCallback(
-    (e: any) => {
-      // If clicked on Stage itself or background rect
-      if (e.target === e.target.getStage() || e.target.name() === "bg-canvas") {
-        clearSelection();
-      }
-    },
-    [clearSelection]
-  );
+  // Deselect on empty canvas click
+  const handleStageClick = (e: KonvaEventObject<MouseEvent>) => {
+    // If clicking on Stage itself or background Rect, deselect all frames
+    if (e.target === e.target.getStage() || e.target.name() === "background-rect") {
+      clearSelection();
+    }
+  };
 
-  // Determine cursor styling
-  let cursorClass = "cursor-default";
-  if (isDraggingCanvas) {
-    cursorClass = "cursor-grabbing";
-  } else if (isSpacePressed) {
-    cursorClass = "cursor-grab";
-  }
+  const cursorClass = isPanning
+    ? "cursor-grabbing"
+    : isSpacePressed
+    ? "cursor-grab"
+    : "cursor-default";
 
   return (
     <main
       ref={containerRef}
-      onWheel={handleWheel}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative min-w-0 flex-1 overflow-hidden bg-zinc-950 select-none ${cursorClass}`}
+      className={`relative flex-1 overflow-hidden bg-zinc-950 select-none ${cursorClass}`}
+      aria-label="Canvas Area"
     >
-      {/* Canvas Area */}
-      {size.width > 0 && size.height > 0 && (
+      {/* Toast Warning / Error */}
+      {toastMessage && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-lg border border-amber-500/40 bg-zinc-900/90 px-4 py-2.5 text-xs text-amber-300 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-top-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{toastMessage}</span>
+          <button
+            onClick={clearToast}
+            className="ml-2 rounded px-1.5 py-0.5 text-[10px] text-zinc-400 hover:text-white hover:bg-zinc-800"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {(isLoading || isDetecting) && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/60 backdrop-blur-xs">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="mt-2 text-xs font-medium text-foreground">
+            {isLoading ? "Đang tải ảnh..." : "Đang detect frame boundaries..."}
+          </span>
+        </div>
+      )}
+
+      {/* Drag & Drop Overlay */}
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center border-2 border-dashed border-primary bg-primary/10 backdrop-blur-xs">
+          <UploadCloud className="h-12 w-12 text-primary animate-bounce" />
+          <span className="mt-3 text-sm font-semibold text-primary">
+            Thả ảnh vào đây để mở
+          </span>
+        </div>
+      )}
+
+      {/* Error state */}
+      {error && !isLoading && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+          <div className="rounded-full bg-destructive/10 p-3 text-destructive mb-3">
+            <UploadCloud className="h-6 w-6" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">Không thể mở ảnh</p>
+          <p className="mt-1 text-xs text-muted-foreground max-w-md">{error}</p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!currentImage && !isLoading && !error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+          <div className="rounded-full bg-muted p-4 text-muted-foreground mb-4">
+            <UploadCloud className="h-8 w-8" />
+          </div>
+          <h3 className="text-sm font-medium text-foreground">
+            Chưa có ảnh nào được mở
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+            Kéo thả file ảnh PNG sprite sheet vào đây hoặc bấm &quot;Open Image&quot; trên thanh công cụ để bắt đầu.
+          </p>
+        </div>
+      )}
+
+      {/* Konva Stage */}
+      {dimensions.width > 0 && dimensions.height > 0 && (
         <Stage
-          ref={stageRef}
-          width={size.width}
-          height={size.height}
-          className="block"
+          width={dimensions.width}
+          height={dimensions.height}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
           onClick={handleStageClick}
-          onTap={handleStageClick}
+          className="absolute inset-0"
         >
-          {/* Background Layer */}
+          {/* Background click handler */}
           <Layer>
             <Rect
-              name="bg-canvas"
+              name="background-rect"
               x={0}
               y={0}
-              width={size.width}
-              height={size.height}
-              fill="#09090b"
+              width={dimensions.width}
+              height={dimensions.height}
+              fill="transparent"
             />
           </Layer>
 
-          {/* Main Content Layer (Zoomed & Panned) */}
-          <Layer
-            x={viewport.offsetX}
-            y={viewport.offsetY}
-            scaleX={viewport.scale}
-            scaleY={viewport.scale}
-            listening={false}
-          >
-            {currentImage && (
-              <>
-                {/* Image bounding backdrop */}
-                <Rect
-                  x={0}
-                  y={0}
-                  width={currentImage.width}
-                  height={currentImage.height}
-                  fill="#18181b"
-                  shadowColor="black"
-                  shadowBlur={20}
-                  shadowOpacity={0.6}
-                />
-
-                {/* Konva Image with NEAREST NEIGHBOR (pixelated) rendering */}
-                <KonvaImage
-                  image={currentImage.bitmap}
-                  x={0}
-                  y={0}
-                  width={currentImage.width}
-                  height={currentImage.height}
-                  imageSmoothingEnabled={false}
-                />
-
-                {/* Thin pixel grid boundary border */}
-                <Rect
-                  x={0}
-                  y={0}
-                  width={currentImage.width}
-                  height={currentImage.height}
-                  stroke="#3f3f46"
-                  strokeWidth={1 / viewport.scale}
-                />
-              </>
-            )}
-          </Layer>
+          {/* Main Image Layer */}
+          {currentImage && (
+            <Layer
+              x={viewport.offsetX}
+              y={viewport.offsetY}
+              scaleX={viewport.scale}
+              scaleY={viewport.scale}
+              imageSmoothingEnabled={false}
+            >
+              {/* Checkerboard backdrop for transparency */}
+              <Rect
+                x={0}
+                y={0}
+                width={currentImage.width}
+                height={currentImage.height}
+                fill="#18181b"
+                stroke="#27272a"
+                strokeWidth={1 / viewport.scale}
+              />
+              <KonvaImage
+                image={currentImage.bitmap}
+                width={currentImage.width}
+                height={currentImage.height}
+                imageSmoothingEnabled={false}
+              />
+            </Layer>
+          )}
 
           {/* Grid Overlay Layer */}
           {currentImage && (
-            <GridOverlayLayer
-              frames={frames}
-              selectedFrameIds={selectedFrameIds}
-              hoveredFrameId={hoveredFrameId}
-              scale={viewport.scale}
-              offsetX={viewport.offsetX}
-              offsetY={viewport.offsetY}
-              onSelectFrame={selectFrame}
-              onHoverFrame={setHoveredFrame}
-            />
+            <Layer
+              x={viewport.offsetX}
+              y={viewport.offsetY}
+              scaleX={viewport.scale}
+              scaleY={viewport.scale}
+            >
+              <GridOverlayLayer
+                onSelectFrame={(id, multi) => selectFrame(id, multi)}
+              />
+            </Layer>
           )}
         </Stage>
       )}
 
-      {/* Empty State / Drag-drop guide */}
-      {!currentImage && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 pointer-events-none">
-          <div className="flex flex-col items-center max-w-sm text-center">
-            <div className="mb-4 flex size-14 items-center justify-center rounded-2xl bg-muted/40 border border-border/60 text-muted-foreground shadow-sm">
-              <UploadCloud className="size-7" />
-            </div>
-            <h3 className="text-base font-semibold text-foreground">
-              Drop AI Sprite Sheet Here
-            </h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Drag and drop any PNG, JPG, or WebP image here, or select a file from recent files in the sidebar.
-            </p>
-            <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground/80 bg-muted/20 px-3 py-1.5 rounded-md border border-border/40">
-              <span>Scroll to zoom</span>
-              <span>•</span>
-              <span>Space + Drag to pan</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Drag Over Overlay */}
-      {isDragOver && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary backdrop-blur-[2px] pointer-events-none">
-          <div className="flex flex-col items-center gap-2 rounded-xl bg-card/90 p-6 shadow-2xl border border-primary/40">
-            <UploadCloud className="size-10 text-primary animate-bounce" />
-            <span className="text-sm font-semibold text-foreground">
-              Release to load sprite sheet
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom Floating Toolbar: Fit, 1:1, Zoom in/out, Zoom %, and Frame count & size */}
+      {/* Canvas bottom controls */}
       <CanvasToolbar
-        containerWidth={size.width}
-        containerHeight={size.height}
+        containerWidth={dimensions.width}
+        containerHeight={dimensions.height}
       />
     </main>
   );

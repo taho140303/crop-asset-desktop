@@ -4,12 +4,15 @@ import type { GridConfig, GridFrame, SlicingMode } from "@/types/grid";
 interface GridStoreState {
   mode: SlicingMode;
   config: GridConfig;
+  manualFrames: GridFrame[];
   selectedFrameIds: string[];
   hoveredFrameId: string | null;
 
   // Actions
   setMode: (mode: SlicingMode) => void;
   updateConfig: (patch: Partial<GridConfig>) => void;
+  setManualFrames: (frames: GridFrame[]) => void;
+  convertAutoToManual: (bboxes: { x: number; y: number; w: number; h: number }[]) => void;
   applyPreset: (rows: number, cols: number, imgWidth?: number, imgHeight?: number) => void;
   autoFillFromImage: (imgWidth: number, imgHeight: number) => void;
   selectFrame: (id: string, multiSelect?: boolean) => void;
@@ -57,6 +60,7 @@ export const useGridStore = create<GridStoreState>((set, get) => ({
     offX: 0,
     offY: 0,
   },
+  manualFrames: [],
   selectedFrameIds: [],
   hoveredFrameId: null,
 
@@ -66,6 +70,26 @@ export const useGridStore = create<GridStoreState>((set, get) => ({
     set((state) => {
       const newConfig = { ...state.config, ...patch };
       return { config: newConfig };
+    });
+  },
+
+  setManualFrames: (frames) => {
+    set({ manualFrames: frames, selectedFrameIds: [] });
+  },
+
+  convertAutoToManual: (bboxes) => {
+    const frames: GridFrame[] = bboxes.map((b, idx) => ({
+      id: `manual-frame-${idx}`,
+      index: idx,
+      x: b.x,
+      y: b.y,
+      w: b.w,
+      h: b.h,
+    }));
+    set({
+      manualFrames: frames,
+      mode: "manual",
+      selectedFrameIds: [],
     });
   },
 
@@ -131,7 +155,7 @@ export const useGridStore = create<GridStoreState>((set, get) => ({
   },
 
   selectAllFrames: () => {
-    const frames = computeFrames(get().config);
+    const frames = get().getFrames();
     set({ selectedFrameIds: frames.map((f) => f.id) });
   },
 
@@ -144,6 +168,10 @@ export const useGridStore = create<GridStoreState>((set, get) => ({
   },
 
   getFrames: () => {
-    return computeFrames(get().config);
+    const state = get();
+    if (state.mode === "manual") {
+      return state.manualFrames;
+    }
+    return computeFrames(state.config);
   },
 }));

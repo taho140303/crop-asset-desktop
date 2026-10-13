@@ -12,12 +12,12 @@ export interface GridConfig {
 export interface GridFrame {
   id: string;
   index: number;
-  row: number;
-  col: number;
+  row?: number;
+  col?: number;
   x: number;
   y: number;
   w: number;
   h: number;
 }
 
-export type SlicingMode = "uniform" | "auto";
+export type SlicingMode = "uniform" | "auto" | "manual";

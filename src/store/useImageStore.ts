@@ -13,7 +13,14 @@ interface ImageState {
   // Actions
   loadImage: (path: string) => Promise<void>;
   loadFile: (file: File) => Promise<void>;
-  setViewport: (viewport: Partial<Viewport> | ((prev: Viewport) => Viewport)) => void;
+  setViewport: (
+    viewport:
+      | Partial<Viewport>
+      | ((prev: Viewport) => Viewport)
+      | number,
+    offsetX?: number,
+    offsetY?: number
+  ) => void;
   resetViewport: () => void;
   fitToScreen: (containerWidth: number, containerHeight: number) => void;
   zoomToPoint: (
@@ -22,6 +29,10 @@ interface ImageState {
     clientY: number,
     containerRect: { left: number; top: number }
   ) => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetZoom: () => void;
+  setPan: (deltaX: number, deltaY: number) => void;
   clearImage: () => void;
 }
 
@@ -160,13 +171,24 @@ export const useImageStore = create<ImageState>((set, get) => ({
     }
   },
 
-  setViewport: (updater) => {
-    set((state) => ({
-      viewport:
-        typeof updater === "function"
-          ? updater(state.viewport)
-          : { ...state.viewport, ...updater },
-    }));
+  setViewport: (updater, offX, offY) => {
+    set((state) => {
+      if (typeof updater === "number") {
+        return {
+          viewport: {
+            scale: updater,
+            offsetX: offX !== undefined ? offX : state.viewport.offsetX,
+            offsetY: offY !== undefined ? offY : state.viewport.offsetY,
+          },
+        };
+      }
+      return {
+        viewport:
+          typeof updater === "function"
+            ? updater(state.viewport)
+            : { ...state.viewport, ...updater },
+      };
+    });
   },
 
   resetViewport: () => {
@@ -232,6 +254,30 @@ export const useImageStore = create<ImageState>((set, get) => ({
     });
   },
 
+  zoomIn: () => {
+    const { viewport } = get();
+    const nextScale = Math.min(16, viewport.scale * 1.25);
+    set({ viewport: { ...viewport, scale: nextScale } });
+  },
+  zoomOut: () => {
+    const { viewport } = get();
+    const nextScale = Math.max(0.25, viewport.scale / 1.25);
+    set({ viewport: { ...viewport, scale: nextScale } });
+  },
+  resetZoom: () => {
+    const { viewport } = get();
+    set({ viewport: { ...viewport, scale: 1 } });
+  },
+  setPan: (deltaX: number, deltaY: number) => {
+    const { viewport } = get();
+    set({
+      viewport: {
+        ...viewport,
+        offsetX: viewport.offsetX + deltaX,
+        offsetY: viewport.offsetY + deltaY,
+      },
+    });
+  },
   clearImage: () => {
     const prevImage = get().currentImage;
     if (prevImage?.objectUrl) {
