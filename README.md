@@ -132,4 +132,3 @@ Thanks to the teams and communities behind [Tauri](https://tauri.app/), [React](
 <p align="center">If Sprite Cropper is useful to you, consider giving the project a star.</p>
 
 <p align="center"><a href="https://star-history.com/#taho140303/crop-asset-desktop&Date"><img src="https://api.star-history.com/svg?repos=taho140303/crop-asset-desktop&type=Date" alt="Star History Chart"></a></p>
-
