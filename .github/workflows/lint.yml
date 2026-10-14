@@ -1,4 +1,4 @@
-name: Lint (informational)
+name: Lint
 
 on:
   pull_request:
