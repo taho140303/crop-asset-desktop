@@ -102,3 +102,29 @@ that you could not run and the reason.
 
 By submitting a contribution, you agree that it may be distributed under the
 project's [MIT License](LICENSE).
+
+## Debugging CI
+
+### The `continue-on-error` trap (historical)
+
+Before Sprint 7.60, `lint.yml` had `continue-on-error: true` at the job level.
+This meant the **run-level** conclusion could be ✅ even when the **job** failed,
+so pull requests showed red check-runs despite a green run. **This was removed in
+Sprint 7.60.**
+
+To verify CI status, always check step-level conclusions:
+
+```bash
+gh run view <run-id> --json jobs \
+  --jq '.jobs[] | {name, conclusion, steps: [.steps[] | {name, conclusion}]}'
+```
+
+### Required status checks
+
+Branch `main` requires:
+
+- **Build and check** (from `ci.yml`)
+- **Prettier and Markdown lint** (from `lint.yml`)
+
+PRs must pass both before merging. `pnpm-lock.yaml` is intentionally excluded
+from Prettier via `.prettierignore` (machine-generated).
