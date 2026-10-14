@@ -9,8 +9,36 @@ permissions:
   contents: write
 
 jobs:
-  publish:
+  create-release:
+    name: Create draft release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      release_id: ${{ steps.create_release.outputs.result }}
+    steps:
+      - name: Create draft release
+        id: create_release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            const { data } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `Release ${tag}`,
+              body: 'See the assets below to download and install.',
+              draft: true,
+              prerelease: false,
+            });
+            return data.id;
+
+  build-tauri:
     name: Build ${{ matrix.name }}
+    needs: create-release
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -60,13 +88,10 @@ jobs:
           rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - name: Install JavaScript dependencies
         run: pnpm install --frozen-lockfile
-      - name: Build and publish release
+      - name: Build and upload to release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: ${{ github.ref_name }}
-          releaseDraft: true
-          generateReleaseNotes: true
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }} --bundles ${{ matrix.bundles }}
