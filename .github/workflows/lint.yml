@@ -9,10 +9,9 @@ permissions:
 
 jobs:
   lint:
-    name: Prettier and Markdown lint (warning only)
+    name: Prettier and Markdown lint
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
